@@ -1,0 +1,48 @@
+configuration:
+  board_api_mode:
+    name: Vestaboard API mode
+    description: >-
+      "local" talks directly to the board on your LAN (faster, supports
+      transitions). "cloud" uses Vestaboard's hosted API (works from anywhere).
+  board_host:
+    name: Board host
+    description: >-
+      IP address or hostname of your Vestaboard (local mode only).
+      Example: 192.168.1.50 or vestaboard.local.
+  board_local_api_key:
+    name: Local API key
+    description: >-
+      Local API key for your Vestaboard. Request one at
+      https://www.vestaboard.com/local-api
+  board_read_write_key:
+    name: Read/Write key
+    description: >-
+      Cloud API Read/Write key (cloud mode only). Get it from
+      https://web.vestaboard.com under Settings -> API.
+  weather_provider:
+    name: Weather provider
+    description: Source for weather data shown by the Weather plugin.
+  weather_api_key:
+    name: Weather API key
+    description: API key for the selected weather provider.
+  weather_location:
+    name: Weather location
+    description: Free-text location, e.g. "San Francisco, CA".
+  timezone:
+    name: Timezone
+    description: IANA timezone, e.g. "America/Los_Angeles".
+  mqtt_enabled:
+    name: Enable MQTT
+    description: >-
+      When enabled, FiestaBoard auto-discovers Home Assistant's MQTT broker
+      (if installed) and exposes itself as a device for HA control.
+  fiestaboard_external_url:
+    name: External URL
+    description: >-
+      URL shown as the "Visit" link on FiestaBoard's MQTT device page in HA.
+      Optional; leave blank to omit the link.
+  log_level:
+    name: Log level
+    description: Verbosity of FiestaBoard's logs.
+network:
+  3000/tcp: Web UI port (also reachable via Ingress).

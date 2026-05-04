@@ -1,0 +1,86 @@
+# https://developers.home-assistant.io/docs/apps/configuration#app-configuration
+name: FiestaBoard
+version: "0.1.0"
+slug: fiestaboard
+description: Open-source self-hosted platform for controlling Vestaboard split-flap displays
+url: "https://github.com/Fiestaboard/FiestaBoard-Home-Assistant-App/tree/main/fiestaboard"
+arch:
+  - aarch64
+  - amd64
+
+# FiestaBoard's upstream image already declares ENTRYPOINT (/app/entrypoint.sh)
+# and runs supervisord internally. We do NOT use s6-overlay; the wrapper
+# script just exports HA options as env vars and execs the upstream entrypoint.
+init: false
+
+# Multi-arch image published on Docker Hub. Build args in build.yaml pin the
+# upstream FiestaBoard base image per architecture.
+image: "fiestaboard/fiestaboard-ha-app"
+
+# Boot behaviour
+boot: auto
+startup: services
+
+# Sidebar / Ingress integration
+ingress: true
+ingress_port: 3000
+panel_icon: mdi:billboard
+panel_title: FiestaBoard
+
+# Direct host port for mDNS / `.local` access from other devices on the LAN.
+# FiestaBoard's UI listens on container port 3000; we map it to 4420 on the host
+# (the default port used by the standalone Docker image).
+ports:
+  "3000/tcp": 4420
+ports_description:
+  "3000/tcp": Web UI (also reachable via Ingress; this exposes it on the LAN for mDNS)
+
+# Persistent data is stored in /data via HA's add-on volume. Our wrapper
+# symlinks /app/data -> /data so FiestaBoard's existing code paths Just Work
+# and HA backups capture all settings, plugin state, and external plugins.
+map:
+  - addon_config:rw
+
+# Auto-discover Home Assistant's MQTT broker (e.g. the Mosquitto add-on).
+# `mqtt:want` means: bind if available, otherwise start without it.
+services:
+  - mqtt:want
+
+# When a discovery message comes from MQTT, HA will route it to FiestaBoard.
+discovery:
+  - mqtt
+
+# Allow FiestaBoard's `home_assistant` plugin to talk to HA core via the
+# Supervisor proxy. The token is exposed as $SUPERVISOR_TOKEN inside the
+# container; FiestaBoard reads HOME_ASSISTANT_BASE_URL=http://supervisor/core
+# and HOME_ASSISTANT_ACCESS_TOKEN=$SUPERVISOR_TOKEN from our wrapper.
+homeassistant_api: true
+
+# User-facing options. The full set of FiestaBoard env vars is configurable
+# via FiestaBoard's own web UI; only the bootstrap-critical values are
+# surfaced here so users can get the board talking before opening the UI.
+options:
+  board_api_mode: local
+  board_host: ""
+  board_local_api_key: ""
+  board_read_write_key: ""
+  weather_provider: weatherapi
+  weather_api_key: ""
+  weather_location: ""
+  timezone: ""
+  mqtt_enabled: true
+  fiestaboard_external_url: ""
+  log_level: info
+
+schema:
+  board_api_mode: list(local|cloud)
+  board_host: str?
+  board_local_api_key: password?
+  board_read_write_key: password?
+  weather_provider: list(weatherapi|openweathermap)?
+  weather_api_key: password?
+  weather_location: str?
+  timezone: str?
+  mqtt_enabled: bool
+  fiestaboard_external_url: url?
+  log_level: list(debug|info|warning|error)?
