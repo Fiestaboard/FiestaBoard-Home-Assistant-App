@@ -19,40 +19,43 @@ log() {
 }
 
 # ---------------------------------------------------------------------------
-# Configurable paths (overridable for tests).
+# Configurable paths (overridable for tests). Resolved fresh in each function
+# so tests can reassign HA_RUN_* between source-time and function call.
 # ---------------------------------------------------------------------------
-OPTIONS_FILE="${HA_RUN_OPTIONS_FILE:-/data/options.json}"
-DATA_DIR="${HA_RUN_DATA_DIR:-/data}"
-APP_DATA_DIR="${HA_RUN_APP_DATA_DIR:-/app/data}"
-SUPERVISOR_URL="${HA_RUN_SUPERVISOR_URL:-http://supervisor}"
-SUPERVISOR_TOKEN_VALUE="${SUPERVISOR_TOKEN:-}"
+opts_file()      { echo "${HA_RUN_OPTIONS_FILE:-/data/options.json}"; }
+data_dir()       { echo "${HA_RUN_DATA_DIR:-/data}"; }
+app_data_dir()   { echo "${HA_RUN_APP_DATA_DIR:-/app/data}"; }
+supervisor_url() { echo "${HA_RUN_SUPERVISOR_URL:-http://supervisor}"; }
 
 # ---------------------------------------------------------------------------
 # 1. Persistent data: link /app/data -> /data (the HA add-on volume).
 # ---------------------------------------------------------------------------
 link_data_dir() {
-    mkdir -p "${DATA_DIR}"
+    local data_dir app_data_dir
+    data_dir="$(data_dir)"
+    app_data_dir="$(app_data_dir)"
+    mkdir -p "${data_dir}"
 
     # If /app/data already points at /data, nothing to do.
-    if [ -L "${APP_DATA_DIR}" ] && [ "$(readlink "${APP_DATA_DIR}")" = "${DATA_DIR}" ]; then
+    if [ -L "${app_data_dir}" ] && [ "$(readlink "${app_data_dir}")" = "${data_dir}" ]; then
         return 0
     fi
 
     # If /app/data exists as a directory in the upstream image (it does — the
     # upstream Dockerfile creates /app/data and declares VOLUME), migrate any
     # files baked in (none expected, but be safe), then replace with a symlink.
-    if [ -d "${APP_DATA_DIR}" ] && [ ! -L "${APP_DATA_DIR}" ]; then
-        if [ -n "$(ls -A "${APP_DATA_DIR}" 2>/dev/null)" ]; then
-            log "migrating contents of ${APP_DATA_DIR} -> ${DATA_DIR}"
-            cp -an "${APP_DATA_DIR}"/. "${DATA_DIR}"/ 2>/dev/null || true
+    if [ -d "${app_data_dir}" ] && [ ! -L "${app_data_dir}" ]; then
+        if [ -n "$(ls -A "${app_data_dir}" 2>/dev/null)" ]; then
+            log "migrating contents of ${app_data_dir} -> ${data_dir}"
+            cp -an "${app_data_dir}"/. "${data_dir}"/ 2>/dev/null || true
         fi
-        rm -rf "${APP_DATA_DIR}"
-    elif [ -e "${APP_DATA_DIR}" ]; then
-        rm -f "${APP_DATA_DIR}"
+        rm -rf "${app_data_dir}"
+    elif [ -e "${app_data_dir}" ]; then
+        rm -f "${app_data_dir}"
     fi
 
-    ln -s "${DATA_DIR}" "${APP_DATA_DIR}"
-    log "linked ${APP_DATA_DIR} -> ${DATA_DIR}"
+    ln -s "${data_dir}" "${app_data_dir}"
+    log "linked ${app_data_dir} -> ${data_dir}"
 }
 
 # ---------------------------------------------------------------------------
@@ -62,11 +65,16 @@ link_data_dir() {
 # (rather than an empty string that would override upstream defaults).
 # ---------------------------------------------------------------------------
 opt() {
-    # opt <jq-path>   prints the value, or empty if missing/null/blank.
-    if [ ! -f "${OPTIONS_FILE}" ]; then
+    # opt <jq-path>   prints the value, or empty if missing/null.
+    # We use `select(. != null)` rather than `// empty` because the alternative
+    # operator `//` treats `false` as falsy and would swallow boolean-false
+    # options like `mqtt_enabled: false`.
+    local file
+    file="$(opts_file)"
+    if [ ! -f "${file}" ]; then
         return 0
     fi
-    jq -r "${1} // empty" "${OPTIONS_FILE}" 2>/dev/null
+    jq -r "${1} | select(. != null)" "${file}" 2>/dev/null
 }
 
 export_if_set() {
@@ -77,8 +85,8 @@ export_if_set() {
 }
 
 apply_options() {
-    if [ ! -f "${OPTIONS_FILE}" ]; then
-        log "no ${OPTIONS_FILE}; skipping options mapping"
+    if [ ! -f "$(opts_file)" ]; then
+        log "no $(opts_file); skipping options mapping"
         return 0
     fi
 
@@ -113,15 +121,17 @@ configure_mqtt() {
         log "mqtt_enabled=false; skipping MQTT auto-discovery"
         return 0
     fi
-    if [ -z "${SUPERVISOR_TOKEN_VALUE}" ]; then
+    local token
+    token="${SUPERVISOR_TOKEN:-}"
+    if [ -z "${token}" ]; then
         log "no SUPERVISOR_TOKEN; skipping MQTT auto-discovery"
         return 0
     fi
 
     local response
     response="$(curl -fsSL \
-        -H "Authorization: Bearer ${SUPERVISOR_TOKEN_VALUE}" \
-        "${SUPERVISOR_URL}/services/mqtt" 2>/dev/null)" || true
+        -H "Authorization: Bearer ${token}" \
+        "$(supervisor_url)/services/mqtt" 2>/dev/null)" || true
 
     if [ -z "${response}" ]; then
         log "MQTT service not bound (or supervisor unavailable); leaving MQTT defaults"
@@ -152,15 +162,19 @@ configure_mqtt() {
 # 4. Wire HA core API (homeassistant_api: true).
 # ---------------------------------------------------------------------------
 configure_home_assistant_api() {
-    if [ -z "${SUPERVISOR_TOKEN_VALUE}" ]; then
+    local token
+    token="${SUPERVISOR_TOKEN:-}"
+    if [ -z "${token}" ]; then
         return 0
     fi
     # Don't override if the user provided their own values via add-on options.
     if [ -z "${HOME_ASSISTANT_BASE_URL:-}" ]; then
-        export HOME_ASSISTANT_BASE_URL="${SUPERVISOR_URL}/core"
+        local sup
+        sup="$(supervisor_url)"
+        export HOME_ASSISTANT_BASE_URL="${sup}/core"
     fi
     if [ -z "${HOME_ASSISTANT_ACCESS_TOKEN:-}" ]; then
-        export HOME_ASSISTANT_ACCESS_TOKEN="${SUPERVISOR_TOKEN_VALUE}"
+        export HOME_ASSISTANT_ACCESS_TOKEN="${token}"
     fi
 }
 

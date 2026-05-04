@@ -1,0 +1,61 @@
+---
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  yamllint:
+    name: yamllint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run yamllint
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          config_file: .yamllint
+
+  hadolint:
+    name: hadolint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: fiestaboard/Dockerfile
+
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run shellcheck
+        uses: ludeeus/action-shellcheck@2.0.0
+        with:
+          scandir: fiestaboard/rootfs
+
+  ha-config:
+    name: HA config validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify slug matches directory name
+        run: |
+          slug="$(yq '.slug' fiestaboard/config.yaml)"
+          if [ "${slug}" != "fiestaboard" ]; then
+            echo "::error::config.yaml slug '${slug}' does not match directory 'fiestaboard'"
+            exit 1
+          fi
+
+      - name: Run Home Assistant add-on info
+        uses: home-assistant/actions/helpers/info@master
+        with:
+          path: ./fiestaboard
