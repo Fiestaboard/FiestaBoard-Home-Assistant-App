@@ -28,7 +28,7 @@ jobs:
       version: ${{ steps.info.outputs.version }}
       publish: ${{ steps.publish.outputs.publish }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Get add-on info
         id: info
@@ -59,7 +59,7 @@ jobs:
       matrix:
         arch: [aarch64, amd64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Login to Docker Hub
         if: needs.init.outputs.publish == 'true'
