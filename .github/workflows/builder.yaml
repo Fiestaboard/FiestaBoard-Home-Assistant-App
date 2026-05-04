@@ -69,11 +69,22 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build add-on (${{ matrix.arch }})
+        # The image name comes from config.yaml's `image:` field. We
+        # intentionally do NOT pass --image or --docker-hub here: the
+        # builder script's --image flag overrides the *unqualified* image
+        # part only, so passing "fiestaboard/fiestaboard-ha-app" caused
+        # it to construct fiestaboard/fiestaboard/fiestaboard-ha-app at
+        # push time. The builder also runs its own docker login inside
+        # the build container, so we forward DOCKER_USER/DOCKER_PASSWORD
+        # for the publish path. (The docker/login-action above is still
+        # useful for any same-host pulls.)
         uses: home-assistant/builder@2026.03.2
         with:
           args: >-
             --${{ matrix.arch }}
             --target /data/fiestaboard
-            --image "fiestaboard/fiestaboard-ha-app"
             --version "${{ needs.init.outputs.version }}"
-            ${{ needs.init.outputs.publish == 'true' && '--docker-hub fiestaboard' || '--test' }}
+            ${{ needs.init.outputs.publish == 'true'
+                && format('--docker-user {0} --docker-password {1}',
+                          secrets.DOCKERHUB_USERNAME, secrets.DOCKERHUB_TOKEN)
+                || '--test' }}
