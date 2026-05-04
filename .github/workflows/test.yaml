@@ -52,11 +52,13 @@ jobs:
         # We don't try to fully boot the upstream FiestaBoard stack in CI
         # (it expects a Home Assistant Supervisor context). Instead we
         # exercise the wrapper end-to-end: run ha-run.sh inside the built
-        # image with a stub command and confirm it sets up /app/data,
-        # applies options, and exec's the trailing argv.
+        # image with a stub command and confirm it applies options and
+        # exec's the trailing argv. Persistent /app/data is provided here
+        # via a bind mount, mirroring how HA Supervisor will mount it from
+        # the `map: { type: addon_config, path: /app/data }` directive.
         run: |
           set -e
-          mkdir -p /tmp/data
+          mkdir -p /tmp/data /tmp/app-data
           cat > /tmp/data/options.json <<'JSON'
           {
             "board_api_mode": "local",
@@ -68,11 +70,12 @@ jobs:
 
           out="$(docker run --rm \
             -v /tmp/data:/data \
+            -v /tmp/app-data:/app/data \
             --entrypoint /usr/local/bin/ha-run.sh \
             fiestaboard-ha-app:ci \
-            /bin/sh -c 'echo BOARD_HOST=$BOARD_HOST; echo LOG_LEVEL=$LOG_LEVEL; echo LINK=$(readlink /app/data)')"
+            /bin/sh -c 'echo BOARD_HOST=$BOARD_HOST; echo LOG_LEVEL=$LOG_LEVEL; echo MQTT_ENABLED=$MQTT_ENABLED')"
 
           echo "$out"
           echo "$out" | grep -q "^BOARD_HOST=192.168.1.50$"
           echo "$out" | grep -q "^LOG_LEVEL=debug$"
-          echo "$out" | grep -q "^LINK=/data$"
+          echo "$out" | grep -q "^MQTT_ENABLED=false$"

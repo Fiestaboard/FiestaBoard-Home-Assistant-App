@@ -64,12 +64,14 @@ Configure which entities to display from FiestaBoard's web UI under
 ## Persistent data and backups
 
 The add-on stores all settings, plugin state, and installed marketplace
-plugins under `/data` (HA's add-on volume). This means **HA's built-in backup
-captures everything** — when you restore a snapshot, FiestaBoard comes back
-exactly as it was.
+plugins in FiestaBoard's `/app/data` directory. Home Assistant Supervisor
+mounts this directly from its persistent `addon_config` volume (see `map`
+in `config.yaml`), which means **HA's built-in backup captures everything**
+— when you restore a snapshot, FiestaBoard comes back exactly as it was.
 
-`/data/settings.json` is the canonical config file. You can hand-edit it from
-the **Files** add-on or via SSH if needed.
+`/app/data/settings.json` is the canonical FiestaBoard config file. You can
+hand-edit it via the **Files** add-on (path: `/addon_configs/<slug>/settings.json`)
+or over SSH if needed.
 
 ## Updating
 

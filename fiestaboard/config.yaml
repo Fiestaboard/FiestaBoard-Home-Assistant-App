@@ -35,11 +35,18 @@ ports:
 ports_description:
   "3000/tcp": Web UI (also reachable via Ingress; this exposes it on the LAN for mDNS)
 
-# Persistent data is stored in /data via HA's add-on volume. Our wrapper
-# symlinks /app/data -> /data so FiestaBoard's existing code paths Just Work
-# and HA backups capture all settings, plugin state, and external plugins.
+# Persistent data:
+#   - /data            -> Home Assistant's per-add-on data dir. Holds
+#                         options.json (user-facing options) and any state
+#                         our wrapper writes. Always present, always backed up.
+#   - /addon_configs/<slug> -> HA's persistent add-on config dir. We mount
+#                              this directly at /app/data so FiestaBoard's
+#                              upstream VOLUME stays writable AND its contents
+#                              are captured in HA snapshots.
 map:
-  - addon_config:rw
+  - type: addon_config
+    read_only: false
+    path: /app/data
 
 # Auto-discover Home Assistant's MQTT broker (e.g. the Mosquitto add-on).
 # `mqtt:want` means: bind if available, otherwise start without it.

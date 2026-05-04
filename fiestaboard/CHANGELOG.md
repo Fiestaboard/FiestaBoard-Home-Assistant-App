@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Curated configuration schema in HA's add-on Options UI: board mode/host/keys,
   weather provider/key/location, timezone, MQTT toggle, external URL, log level.
   All other FiestaBoard settings remain available in FiestaBoard's own web UI.
-- Persistent data: FiestaBoard's `/app/data` is symlinked to HA's `/data`
-  volume so settings, plugin state, and external plugins are captured by HA's
-  built-in backup mechanism automatically.
+- Persistent data: FiestaBoard's `/app/data` is mounted directly from HA's
+  `addon_config` volume so settings, plugin state, and external plugins are
+  captured by HA's built-in backup mechanism automatically.
 - Supported architectures: `aarch64`, `amd64`.

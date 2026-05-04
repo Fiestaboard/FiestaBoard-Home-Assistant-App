@@ -2,12 +2,15 @@
 # ha-run.sh — Home Assistant shim for FiestaBoard.
 #
 # Runs as root before the upstream /app/entrypoint.sh. Responsibilities:
-#   1. Wire HA's /data volume into FiestaBoard's expected /app/data path.
-#   2. Translate /data/options.json into the env vars the upstream image reads.
-#   3. Query the Supervisor for the bound MQTT service (if any) and export
+#   1. Translate /data/options.json into the env vars the upstream image reads.
+#   2. Query the Supervisor for the bound MQTT service (if any) and export
 #      MQTT_* env vars so FiestaBoard's HA discovery starts with zero config.
-#   4. Wire HA's homeassistant_api proxy into HOME_ASSISTANT_*.
-#   5. exec into the upstream entrypoint with the original command.
+#   3. Wire HA's homeassistant_api proxy into HOME_ASSISTANT_*.
+#   4. exec into the upstream entrypoint with the original command.
+#
+# Persistent data (/app/data) is mounted directly by the Home Assistant
+# Supervisor via the `map: { type: addon_config, path: /app/data }` directive
+# in config.yaml — nothing for this script to do.
 #
 # Designed to also run unit-testably: every external touchpoint (jq input
 # path, supervisor URL, exec target) honours an env override so bats tests
@@ -23,46 +26,15 @@ log() {
 # so tests can reassign HA_RUN_* between source-time and function call.
 # ---------------------------------------------------------------------------
 opts_file()      { echo "${HA_RUN_OPTIONS_FILE:-/data/options.json}"; }
-data_dir()       { echo "${HA_RUN_DATA_DIR:-/data}"; }
-app_data_dir()   { echo "${HA_RUN_APP_DATA_DIR:-/app/data}"; }
 supervisor_url() { echo "${HA_RUN_SUPERVISOR_URL:-http://supervisor}"; }
 
 # ---------------------------------------------------------------------------
-# 1. Persistent data: link /app/data -> /data (the HA add-on volume).
-# ---------------------------------------------------------------------------
-link_data_dir() {
-    local data_dir app_data_dir
-    data_dir="$(data_dir)"
-    app_data_dir="$(app_data_dir)"
-    mkdir -p "${data_dir}"
-
-    # If /app/data already points at /data, nothing to do.
-    if [ -L "${app_data_dir}" ] && [ "$(readlink "${app_data_dir}")" = "${data_dir}" ]; then
-        return 0
-    fi
-
-    # If /app/data exists as a directory in the upstream image (it does — the
-    # upstream Dockerfile creates /app/data and declares VOLUME), migrate any
-    # files baked in (none expected, but be safe), then replace with a symlink.
-    if [ -d "${app_data_dir}" ] && [ ! -L "${app_data_dir}" ]; then
-        if [ -n "$(ls -A "${app_data_dir}" 2>/dev/null)" ]; then
-            log "migrating contents of ${app_data_dir} -> ${data_dir}"
-            cp -an "${app_data_dir}"/. "${data_dir}"/ 2>/dev/null || true
-        fi
-        rm -rf "${app_data_dir}"
-    elif [ -e "${app_data_dir}" ]; then
-        rm -f "${app_data_dir}"
-    fi
-
-    ln -s "${data_dir}" "${app_data_dir}"
-    log "linked ${app_data_dir} -> ${data_dir}"
-}
-
-# ---------------------------------------------------------------------------
-# 2. Map /data/options.json to FiestaBoard env vars.
+# 1. Map /data/options.json to FiestaBoard env vars.
 #
-# Uses `jq -r` with `// empty` so unset/blank options become unset env vars
-# (rather than an empty string that would override upstream defaults).
+# Uses `jq -r` with `select(. != null)` so unset/null options become unset
+# env vars (rather than an empty string that would override upstream
+# defaults). We avoid the `//` operator because it treats boolean `false`
+# as falsy and would swallow `mqtt_enabled: false`.
 # ---------------------------------------------------------------------------
 opt() {
     # opt <jq-path>   prints the value, or empty if missing/null.
@@ -113,7 +85,7 @@ apply_options() {
 }
 
 # ---------------------------------------------------------------------------
-# 3. Auto-wire HA's MQTT broker via the Supervisor services API.
+# 2. Auto-wire HA's MQTT broker via the Supervisor services API.
 #    Only runs when SUPERVISOR_TOKEN is present AND the user left MQTT enabled.
 # ---------------------------------------------------------------------------
 configure_mqtt() {
@@ -159,7 +131,7 @@ configure_mqtt() {
 }
 
 # ---------------------------------------------------------------------------
-# 4. Wire HA core API (homeassistant_api: true).
+# 3. Wire HA core API (homeassistant_api: true).
 # ---------------------------------------------------------------------------
 configure_home_assistant_api() {
     local token
@@ -179,10 +151,9 @@ configure_home_assistant_api() {
 }
 
 # ---------------------------------------------------------------------------
-# 5. Hand off to upstream entrypoint with the supervisord command.
+# 4. Hand off to upstream entrypoint with the supervisord command.
 # ---------------------------------------------------------------------------
 main() {
-    link_data_dir
     apply_options
     configure_mqtt
     configure_home_assistant_api
