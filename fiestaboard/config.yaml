@@ -13,9 +13,15 @@ arch:
 # script just exports HA options as env vars and execs the upstream entrypoint.
 init: false
 
-# Multi-arch image published on Docker Hub. Build args in build.yaml pin the
-# upstream FiestaBoard base image per architecture.
-image: "fiestaboard/fiestaboard-ha-app"
+# When the multi-arch image is published to Docker Hub, uncomment the line
+# below so HA Supervisor pulls it instead of building locally:
+#
+#   image: "fiestaboard/fiestaboard-ha-app"
+#
+# Until then, omitting `image` makes Supervisor build the wrapper from this
+# directory's Dockerfile on the host, which is what you want for development
+# and pre-release testing. Build args (BUILD_FROM per arch, etc.) come from
+# build.yaml in this same directory.
 
 # Boot behaviour
 boot: auto
