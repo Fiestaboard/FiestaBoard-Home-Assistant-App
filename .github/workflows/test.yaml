@@ -48,32 +48,31 @@ jobs:
             BUILD_VERSION=ci
           tags: fiestaboard-ha-app:ci
 
-      - name: Run container
-        run: |
-          docker run -d --rm \
-            --name fb-ha-app \
-            -e SUPERVISOR_TOKEN= \
-            -p 3000:3000 \
-            fiestaboard-ha-app:ci
-
-      - name: Wait for /api/health
+      - name: Smoke-test the wrapper shim
+        # We don't try to fully boot the upstream FiestaBoard stack in CI
+        # (it expects a Home Assistant Supervisor context). Instead we
+        # exercise the wrapper end-to-end: run ha-run.sh inside the built
+        # image with a stub command and confirm it sets up /app/data,
+        # applies options, and exec's the trailing argv.
         run: |
           set -e
-          for i in $(seq 1 60); do
-            if curl -fsS http://127.0.0.1:3000/api/health >/dev/null 2>&1; then
-              echo "ready after ${i}s"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "::error::container did not become healthy within 60s"
-          docker logs fb-ha-app || true
-          exit 1
+          mkdir -p /tmp/data
+          cat > /tmp/data/options.json <<'JSON'
+          {
+            "board_api_mode": "local",
+            "board_host": "192.168.1.50",
+            "log_level": "debug",
+            "mqtt_enabled": false
+          }
+          JSON
 
-      - name: Container logs
-        if: always()
-        run: docker logs fb-ha-app || true
+          out="$(docker run --rm \
+            -v /tmp/data:/data \
+            --entrypoint /usr/local/bin/ha-run.sh \
+            fiestaboard-ha-app:ci \
+            /bin/sh -c 'echo BOARD_HOST=$BOARD_HOST; echo LOG_LEVEL=$LOG_LEVEL; echo LINK=$(readlink /app/data)')"
 
-      - name: Stop container
-        if: always()
-        run: docker stop fb-ha-app || true
+          echo "$out"
+          echo "$out" | grep -q "^BOARD_HOST=192.168.1.50$"
+          echo "$out" | grep -q "^LOG_LEVEL=debug$"
+          echo "$out" | grep -q "^LINK=/data$"
