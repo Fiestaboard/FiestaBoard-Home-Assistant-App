@@ -1,0 +1,4 @@
+# https://developers.home-assistant.io/docs/apps/repository#repository-configuration
+name: FiestaBoard
+url: "https://github.com/Fiestaboard/FiestaBoard-Home-Assistant-App"
+maintainer: FiestaBoard <fiestaboardapp@gmail.com>
