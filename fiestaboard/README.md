@@ -1,5 +1,7 @@
 # FiestaBoard
 
+> ⚠️ **Beta.** This add-on works end-to-end but its integration with HA Supervisor is still maturing. Please [report issues](https://github.com/Fiestaboard/FiestaBoard-Home-Assistant-App/issues) so we can iron them out.
+
 [FiestaBoard](https://fiestaboard.app) is an open-source self-hosted platform
 for controlling Vestaboard split-flap displays. Connect your Vestaboard
 Flagship (22×6) or Note (15×3), then use built-in plugins to display weather,

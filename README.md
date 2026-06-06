@@ -1,10 +1,14 @@
 # FiestaBoard Home Assistant App Repository
 
+![Beta](https://img.shields.io/badge/status-beta-orange)
+
 [![Open your Home Assistant instance and show the app store with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_store.svg)](https://my.home-assistant.io/redirect/supervisor_store/?repository_url=https%3A%2F%2Fgithub.com%2FFiestaboard%2FFiestaBoard-Home-Assistant-App)
 
 This repository packages [FiestaBoard](https://fiestaboard.app) — the open-source self-hosted platform for controlling Vestaboard split-flap displays — as a Home Assistant Supervisor add-on (a.k.a. "app").
 
 Install it from your Home Assistant Supervisor and FiestaBoard appears in the sidebar with one-click ingress, automatic MQTT discovery, and Home Assistant–managed backups of all your settings.
+
+> **Beta.** The add-on works end-to-end and is in active use, but the integration surface between FiestaBoard and Home Assistant Supervisor is still maturing — expect occasional rough edges, especially around upstream version bumps. Please [open an issue](https://github.com/Fiestaboard/FiestaBoard-Home-Assistant-App/issues) if anything misbehaves.
 
 ## Apps
 

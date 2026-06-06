@@ -1,5 +1,8 @@
 # FiestaBoard Home Assistant App — Setup
 
+> ⚠️ **Beta.** End-to-end install works (Ingress, MQTT auto-discovery, HA core API, backups, updates through the add-on store) but the wrapper is still maturing — please file issues at
+> <https://github.com/Fiestaboard/FiestaBoard-Home-Assistant-App/issues> if anything surprises you.
+
 ## Quick start
 
 1. **Install the add-on** from the Add-on Store (this repository).
