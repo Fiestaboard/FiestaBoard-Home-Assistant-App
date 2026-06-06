@@ -21,6 +21,8 @@ Run FiestaBoard inside Home Assistant. Connect your Vestaboard, configure plugin
 
 ## Installation
 
+> **Requires Home Assistant OS or Home Assistant Supervised.** Container and Core installs don't have the add-on infrastructure — use [FiestaBoard's Docker Compose install](https://fiestaboard.app/docs/setup/quick-start) directly instead.
+
 1. In Home Assistant, navigate to **Settings → Add-ons → Add-on Store**.
 2. Click the **⋮** menu (top-right) → **Repositories**.
 3. Add this repository URL:

@@ -3,6 +3,18 @@
 > ⚠️ **Beta.** End-to-end install works (Ingress, MQTT auto-discovery, HA core API, backups, updates through the add-on store) but the wrapper is still maturing — please file issues at
 > <https://github.com/Fiestaboard/FiestaBoard-Home-Assistant-App/issues> if anything surprises you.
 
+## Requirements
+
+This add-on installs through the Home Assistant **Add-on Store**, which is only
+available on:
+
+- **Home Assistant OS** (the all-in-one image)
+- **Home Assistant Supervised** (Supervisor running on Debian)
+
+If you run **Home Assistant Container** or **Home Assistant Core**, you don't
+have the add-on infrastructure — use [FiestaBoard's Docker Compose
+install](https://fiestaboard.app/docs/setup/quick-start) directly instead.
+
 ## Quick start
 
 1. **Install the add-on** from the Add-on Store (this repository).
