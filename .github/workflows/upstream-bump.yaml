@@ -61,7 +61,7 @@ jobs:
 
       - name: Open or update PR
         if: steps.versions.outputs.needs_bump == 'true'
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           branch: upstream/fiestaboard-${{ steps.versions.outputs.latest }}
           base: main
