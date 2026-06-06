@@ -102,10 +102,17 @@ or over SSH if needed.
 
 ## Updating
 
-To pull in a new upstream FiestaBoard release, this add-on must be rebuilt
-against the new base image. Watch the
-[releases](https://github.com/Fiestaboard/FiestaBoard-Home-Assistant-App/releases)
-page; updating works through the normal HA add-on update flow.
+Updates come through the **Home Assistant add-on store** like any other
+add-on. A weekly workflow in this repo polls upstream FiestaBoard for new
+releases and opens a sync PR; once merged and tagged, HA Supervisor offers
+the update to you.
+
+FiestaBoard's own in-app "Update Now" button is **intentionally hidden**
+under HA. Upstream ships a companion sidecar container (`fiestaupdater`)
+that updates a standalone Docker install in place via the host docker
+socket — that mechanism would race HA Supervisor's own update flow and
+isn't safe to run inside an add-on. The shim disables it so the only
+update path is through HA's UI.
 
 ## Troubleshooting
 

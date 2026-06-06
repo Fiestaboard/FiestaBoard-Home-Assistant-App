@@ -172,12 +172,43 @@ configure_home_assistant_api() {
 }
 
 # ---------------------------------------------------------------------------
-# 4. Hand off to upstream entrypoint with the supervisord command.
+# 4. Disable the in-app self-update affordance.
+#
+# FiestaBoard 6.x ships a companion "fiestaupdater" sidecar container that
+# pulls new images via the host docker socket. Under Home Assistant the
+# sidecar never exists — HA Supervisor owns updates and pulls them from this
+# repo's Docker Hub image. The frontend hides the "Update Now" button when
+# the backend reports an empty FIESTAUPDATER_TOKEN.
+#
+# The upstream entrypoint auto-generates a token to
+# /app/data/.fiestaupdater-token unless one is already present, so we
+# truncate that file to empty before handing off. The entrypoint then
+# `cat`s an empty string, exports an empty FIESTAUPDATER_TOKEN, and the
+# API server reports `updater_available=false` — no network probe, no
+# misleading button.
+# ---------------------------------------------------------------------------
+disable_in_app_updater() {
+    local token_file="${HA_RUN_UPDATER_TOKEN_FILE:-/app/data/.fiestaupdater-token}"
+    local data_dir
+    data_dir="$(dirname "${token_file}")"
+    if [ ! -d "${data_dir}" ]; then
+        # /app/data is HA-mounted on real runs; on tests the caller provides
+        # the directory. If it's missing here just skip — the upstream
+        # entrypoint will create the dir before generating the token, but
+        # we'd rather no-op than fail the boot.
+        return 0
+    fi
+    : > "${token_file}"
+}
+
+# ---------------------------------------------------------------------------
+# 5. Hand off to upstream entrypoint with the supervisord command.
 # ---------------------------------------------------------------------------
 main() {
     apply_options
     configure_mqtt
     configure_home_assistant_api
+    disable_in_app_updater
 
     if [ "$#" -eq 0 ]; then
         log "no CMD provided; defaulting to upstream entrypoint + supervisord"

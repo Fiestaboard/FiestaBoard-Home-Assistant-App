@@ -222,6 +222,27 @@ PY
 }
 
 # ---------------------------------------------------------------------------
+# disable_in_app_updater — pre-empt the upstream entrypoint's token gen
+# ---------------------------------------------------------------------------
+
+@test "disable_in_app_updater truncates token file when data dir exists" {
+    export HA_RUN_UPDATER_TOKEN_FILE="${TMP}/data/.fiestaupdater-token"
+    mkdir -p "${TMP}/data"
+    # Pre-existing token (simulating a migrated install) should be wiped.
+    echo "leftover-token" > "${HA_RUN_UPDATER_TOKEN_FILE}"
+    disable_in_app_updater
+    [ -f "${HA_RUN_UPDATER_TOKEN_FILE}" ]
+    [ ! -s "${HA_RUN_UPDATER_TOKEN_FILE}" ]
+}
+
+@test "disable_in_app_updater is a no-op when data dir is missing" {
+    export HA_RUN_UPDATER_TOKEN_FILE="${TMP}/nonexistent/.fiestaupdater-token"
+    run disable_in_app_updater
+    [ "$status" -eq 0 ]
+    [ ! -e "${HA_RUN_UPDATER_TOKEN_FILE}" ]
+}
+
+# ---------------------------------------------------------------------------
 # main — exec hand-off
 # ---------------------------------------------------------------------------
 

@@ -4,7 +4,15 @@ All notable changes to the FiestaBoard Home Assistant App will be documented her
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 0.2.0 — Unreleased
+## 0.2.1 — Unreleased
+
+### Changed
+
+- Hide FiestaBoard's in-app "Update Now" affordance. Updates flow exclusively
+  through the Home Assistant add-on store; the upstream sidecar updater is
+  not safe to run alongside HA Supervisor's own update mechanism.
+
+## 0.2.0 — 2026-06-06
 
 ### Changed
 
