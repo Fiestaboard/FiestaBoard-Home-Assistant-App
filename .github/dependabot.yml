@@ -9,10 +9,6 @@ updates:
       - dependencies
       - github-actions
 
-  - package-ecosystem: docker
-    directory: "/fiestaboard"
-    schedule:
-      interval: weekly
-    labels:
-      - dependencies
-      - docker
+  # Upstream FiestaBoard bumps are handled by .github/workflows/upstream-bump.yaml.
+  # The real per-arch pin lives in fiestaboard/build.yaml (a Home Assistant
+  # builder spec), which Dependabot's docker ecosystem does not parse.

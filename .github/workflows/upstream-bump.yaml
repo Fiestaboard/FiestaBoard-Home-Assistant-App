@@ -1,0 +1,88 @@
+---
+name: Upstream bump
+
+# Polls the upstream FiestaBoard repo for new releases and opens a PR
+# bumping the pinned base image. We can't use Dependabot's docker watcher
+# because the real per-arch pin lives in fiestaboard/build.yaml (a Home
+# Assistant builder spec) which Dependabot doesn't parse.
+on:
+  schedule:
+    # Weekly, Monday 06:00 UTC.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Force a specific upstream version (e.g. 6.14.0). Leave empty to use latest."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Determine current and latest versions
+        id: versions
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          current="$(grep -E '^\s*amd64:\s*fiestaboard/fiestaboard:' fiestaboard/build.yaml \
+            | sed -E 's/.*fiestaboard:([^ ]+).*/\1/')"
+          if [ -n "${FORCE_VERSION}" ]; then
+            latest="${FORCE_VERSION}"
+          else
+            latest="$(gh api repos/Fiestaboard/FiestaBoard/releases/latest --jq '.tag_name' \
+              | sed 's/^v//')"
+          fi
+          echo "current=${current}" >> "$GITHUB_OUTPUT"
+          echo "latest=${latest}"   >> "$GITHUB_OUTPUT"
+          if [ "${current}" = "${latest}" ]; then
+            echo "needs_bump=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "needs_bump=true"  >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump pinned files
+        if: steps.versions.outputs.needs_bump == 'true'
+        env:
+          CURRENT: ${{ steps.versions.outputs.current }}
+          LATEST: ${{ steps.versions.outputs.latest }}
+        run: |
+          set -euo pipefail
+          sed -i "s|fiestaboard/fiestaboard:${CURRENT}|fiestaboard/fiestaboard:${LATEST}|g" \
+            fiestaboard/build.yaml fiestaboard/Dockerfile
+
+      - name: Open or update PR
+        if: steps.versions.outputs.needs_bump == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: upstream/fiestaboard-${{ steps.versions.outputs.latest }}
+          base: main
+          title: "feat: bump upstream FiestaBoard to ${{ steps.versions.outputs.latest }}"
+          commit-message: |
+            feat: bump upstream FiestaBoard ${{ steps.versions.outputs.current }} → ${{ steps.versions.outputs.latest }}
+          body: |
+            Automated bump from the **Upstream bump** workflow.
+
+            Updates `fiestaboard/build.yaml` (both arches) and
+            `fiestaboard/Dockerfile`'s `BUILD_FROM` default to
+            `fiestaboard/fiestaboard:${{ steps.versions.outputs.latest }}`.
+
+            **Before merging:**
+            1. Skim the upstream release notes:
+               https://github.com/Fiestaboard/FiestaBoard/releases/tag/v${{ steps.versions.outputs.latest }}
+            2. Look for new `FIESTABOARD_*` env vars or renamed options —
+               update `config.yaml`, `rootfs/usr/local/bin/ha-run.sh`, and
+               `tests/ha-run.bats` if so.
+            3. Bump `version` in `fiestaboard/config.yaml` and add a
+               `CHANGELOG.md` entry before cutting a new add-on release.
+          labels: |
+            dependencies
+            upstream
