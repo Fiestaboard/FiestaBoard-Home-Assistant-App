@@ -15,7 +15,7 @@ jobs:
     name: Bats unit tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install bats and dependencies
         run: |
@@ -29,13 +29,13 @@ jobs:
     name: Image smoke test (amd64)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
       - name: Build wrapper image (amd64)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./fiestaboard
           file: ./fiestaboard/Dockerfile
@@ -43,7 +43,7 @@ jobs:
           push: false
           load: true
           build-args: |
-            BUILD_FROM=fiestaboard/fiestaboard:5.6.0
+            BUILD_FROM=fiestaboard/fiestaboard:6.14.0
             BUILD_ARCH=amd64
             BUILD_VERSION=ci
           tags: fiestaboard-ha-app:ci

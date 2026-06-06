@@ -31,6 +31,9 @@ intentionally only surfaces the bootstrap-critical fields.
 | `timezone` | string | IANA timezone (e.g. `America/Los_Angeles`). |
 | `mqtt_enabled` | bool | Enable MQTT integration (auto-wired to HA's broker if installed). |
 | `fiestaboard_external_url` | url | URL shown as the "Visit" link on FiestaBoard's MQTT device page in HA. |
+| `fiestaboard_auth_enabled` | bool | FiestaBoard 6.0+ in-app login. Defaults **off** because HA Ingress already authenticates web access. Turn this on if you publish the LAN port (`4420`) to the internet. |
+| `fiestaboard_session_ttl_seconds` | int | Session lifetime when `fiestaboard_auth_enabled` is on. `0` means use upstream's default (7 days). |
+| `fiestaboard_mcp_token` | password | Pre-shared bearer token for FiestaBoard's `/mcp` endpoint (Claude Desktop / Claude Code). Only relevant when in-app auth is on. |
 | `log_level` | enum | One of `debug`, `info`, `warning`, `error`. |
 
 ## Network access
@@ -52,6 +55,30 @@ and credentials automatically. You'll see FiestaBoard show up as a device in
 **Settings → Devices & Services → MQTT** with no manual config.
 
 To turn it off, set `mqtt_enabled: false` in Configuration.
+
+## Authentication (FiestaBoard 6.0+)
+
+Upstream FiestaBoard 6.0 introduced a secure-by-default login. This add-on
+ships with `fiestaboard_auth_enabled: false`, which keeps the previous
+behavior: anyone who reaches the FiestaBoard UI can use it. That's the right
+default for two reasons:
+
+1. **Home Assistant Ingress already authenticates** — the "Open Web UI" path
+   from the sidebar is gated by HA's own login.
+2. **Webhook callers (HA automations, scripts) keep working** — `POST
+   /api/plugins/{plugin_id}/receive` would otherwise return `401`.
+
+Turn `fiestaboard_auth_enabled` on if you expose host port `4420` to the
+internet or share it with people you don't want to give HA logins to. When
+auth is on:
+
+- The first visit shows a setup picker; pick a username/password.
+- Service-to-service callers (Claude Desktop's MCP client, CI webhooks)
+  authenticate with `fiestaboard_mcp_token` instead of a cookie. Generate one
+  with `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+- FiestaBoard auto-generates a Fernet secret key at `/app/data/.secret_key`
+  for at-rest encryption. **Don't delete it** — losing it makes any
+  encrypted secrets unrecoverable. HA's backups capture it automatically.
 
 ## Home Assistant integration
 

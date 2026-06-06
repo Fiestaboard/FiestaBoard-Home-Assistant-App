@@ -13,6 +13,7 @@ setup() {
     unset BOARD_API_MODE BOARD_HOST BOARD_LOCAL_API_KEY BOARD_READ_WRITE_KEY
     unset WEATHER_PROVIDER WEATHER_API_KEY WEATHER_LOCATION TIMEZONE
     unset FIESTABOARD_EXTERNAL_URL LOG_LEVEL
+    unset FIESTABOARD_AUTH_ENABLED FIESTABOARD_SESSION_TTL_SECONDS FIESTABOARD_MCP_TOKEN
     unset HOME_ASSISTANT_BASE_URL HOME_ASSISTANT_ACCESS_TOKEN
 
     # shellcheck disable=SC1090
@@ -41,21 +42,27 @@ teardown() {
   "timezone": "America/Los_Angeles",
   "mqtt_enabled": true,
   "fiestaboard_external_url": "http://ha.local:4420",
+  "fiestaboard_auth_enabled": true,
+  "fiestaboard_session_ttl_seconds": 3600,
+  "fiestaboard_mcp_token": "mcp-secret",
   "log_level": "debug"
 }
 JSON
     apply_options
-    [ "${BOARD_API_MODE}"           = "cloud" ]
-    [ "${BOARD_HOST}"               = "192.168.1.50" ]
-    [ "${BOARD_LOCAL_API_KEY}"      = "lkey" ]
-    [ "${BOARD_READ_WRITE_KEY}"     = "rwkey" ]
-    [ "${WEATHER_PROVIDER}"         = "openweathermap" ]
-    [ "${WEATHER_API_KEY}"          = "wkey" ]
-    [ "${WEATHER_LOCATION}"         = "San Francisco, CA" ]
-    [ "${TIMEZONE}"                 = "America/Los_Angeles" ]
-    [ "${FIESTABOARD_EXTERNAL_URL}" = "http://ha.local:4420" ]
-    [ "${LOG_LEVEL}"                = "debug" ]
-    [ "${MQTT_ENABLED}"             = "true" ]
+    [ "${BOARD_API_MODE}"                    = "cloud" ]
+    [ "${BOARD_HOST}"                        = "192.168.1.50" ]
+    [ "${BOARD_LOCAL_API_KEY}"               = "lkey" ]
+    [ "${BOARD_READ_WRITE_KEY}"              = "rwkey" ]
+    [ "${WEATHER_PROVIDER}"                  = "openweathermap" ]
+    [ "${WEATHER_API_KEY}"                   = "wkey" ]
+    [ "${WEATHER_LOCATION}"                  = "San Francisco, CA" ]
+    [ "${TIMEZONE}"                          = "America/Los_Angeles" ]
+    [ "${FIESTABOARD_EXTERNAL_URL}"          = "http://ha.local:4420" ]
+    [ "${FIESTABOARD_AUTH_ENABLED}"          = "true" ]
+    [ "${FIESTABOARD_SESSION_TTL_SECONDS}"   = "3600" ]
+    [ "${FIESTABOARD_MCP_TOKEN}"             = "mcp-secret" ]
+    [ "${LOG_LEVEL}"                         = "debug" ]
+    [ "${MQTT_ENABLED}"                      = "true" ]
 }
 
 @test "apply_options skips empty options" {
@@ -85,6 +92,22 @@ JSON
 JSON
     apply_options
     [ "${MQTT_ENABLED:-}" = "false" ]
+}
+
+@test "apply_options exports FIESTABOARD_AUTH_ENABLED=false explicitly when disabled" {
+    cat > "${HA_RUN_OPTIONS_FILE}" <<'JSON'
+{ "fiestaboard_auth_enabled": false }
+JSON
+    apply_options
+    [ "${FIESTABOARD_AUTH_ENABLED:-}" = "false" ]
+}
+
+@test "apply_options skips FIESTABOARD_SESSION_TTL_SECONDS when zero" {
+    cat > "${HA_RUN_OPTIONS_FILE}" <<'JSON'
+{ "fiestaboard_session_ttl_seconds": 0 }
+JSON
+    apply_options
+    [ -z "${FIESTABOARD_SESSION_TTL_SECONDS:-}" ]
 }
 
 # ---------------------------------------------------------------------------

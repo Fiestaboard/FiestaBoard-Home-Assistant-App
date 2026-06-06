@@ -4,7 +4,33 @@ All notable changes to the FiestaBoard Home Assistant App will be documented her
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 0.1.0 — Unreleased
+## 0.2.0 — Unreleased
+
+### Changed
+
+- Bumped upstream FiestaBoard from **5.6.0 → 6.14.0**. 6.0.0 added a
+  secure-by-default login layer; the add-on now sets
+  `FIESTABOARD_AUTH_ENABLED=false` by default so Home Assistant's Ingress and
+  the LAN port stay reachable without an extra in-app login. Flip the new
+  `fiestaboard_auth_enabled` option to `true` if you want FiestaBoard's own
+  username/password gate (recommended if you publish the LAN port to the
+  internet).
+- The MCP bearer token (`fiestaboard_mcp_token`) is now exposable as an
+  add-on option for service-to-service callers (Claude Desktop, etc.) when
+  auth is on.
+
+### Added
+
+- New options: `fiestaboard_auth_enabled`, `fiestaboard_session_ttl_seconds`,
+  `fiestaboard_mcp_token`. All translate directly to upstream env vars; see
+  DOCS.md for guidance.
+- Weekly **upstream-bump** workflow (`.github/workflows/upstream-bump.yaml`):
+  polls Docker Hub for new `fiestaboard/fiestaboard` tags and opens a PR
+  updating `build.yaml` + `Dockerfile`. Replaces the previous Dependabot
+  docker watch, which never fired because it parses Dockerfile pins but the
+  real per-arch pin lives in `build.yaml`.
+
+## 0.1.0 — 2026-05-04
 
 ### Added
 

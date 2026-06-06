@@ -71,6 +71,7 @@ apply_options() {
     export_if_set WEATHER_LOCATION        "$(opt '.weather_location')"
     export_if_set TIMEZONE                "$(opt '.timezone')"
     export_if_set FIESTABOARD_EXTERNAL_URL "$(opt '.fiestaboard_external_url')"
+    export_if_set FIESTABOARD_MCP_TOKEN    "$(opt '.fiestaboard_mcp_token')"
     export_if_set LOG_LEVEL               "$(opt '.log_level')"
 
     # mqtt_enabled is a bool; only export when true so we don't override
@@ -81,6 +82,26 @@ apply_options() {
         export MQTT_ENABLED=true
     elif [ "${mqtt_flag}" = "false" ]; then
         export MQTT_ENABLED=false
+    fi
+
+    # FiestaBoard 6.0+ secure-by-default auth. Empty / unset env means
+    # "let the admin choose at first run"; we always pin to an explicit
+    # true/false so HA-managed installs are deterministic. Default in
+    # config.yaml is false because HA Ingress already provides login.
+    local auth_flag
+    auth_flag="$(opt '.fiestaboard_auth_enabled')"
+    if [ "${auth_flag}" = "true" ]; then
+        export FIESTABOARD_AUTH_ENABLED=true
+    elif [ "${auth_flag}" = "false" ]; then
+        export FIESTABOARD_AUTH_ENABLED=false
+    fi
+
+    # Session TTL: only forward when user opted in with a positive value.
+    # 0 means "use upstream default" (currently 604800s = 7 days).
+    local ttl
+    ttl="$(opt '.fiestaboard_session_ttl_seconds')"
+    if [ -n "${ttl}" ] && [ "${ttl}" != "0" ]; then
+        export FIESTABOARD_SESSION_TTL_SECONDS="${ttl}"
     fi
 }
 
