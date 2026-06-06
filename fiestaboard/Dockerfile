@@ -47,12 +47,12 @@ LABEL \
     org.opencontainers.image.created="${BUILD_DATE}"
 
 # Our shim must run BEFORE the upstream /app/entrypoint.sh so it can:
-#   1. Symlink /app/data -> /data (HA's persistent volume) before upstream
-#      mkdirs/chowns /app/data.
-#   2. Translate /data/options.json into the env vars upstream consumes.
-#   3. Query the Supervisor for the MQTT service binding and HA API token.
+#   1. Translate /data/options.json into the env vars upstream consumes.
+#   2. Query the Supervisor for the MQTT service binding and HA API token.
 # After that, ha-run.sh `exec`s the upstream entrypoint with the original
 # command, preserving upstream's root->appuser gosu handoff and supervisord
-# launch.
+# launch. Persistent data at /app/data is mounted directly by HA Supervisor
+# via the `map: { type: addon_config, path: /app/data }` directive in
+# config.yaml, so the shim does not manage that path.
 ENTRYPOINT ["/usr/local/bin/ha-run.sh"]
 CMD ["/app/entrypoint.sh", "supervisord", "-c", "/app/supervisord.conf"]

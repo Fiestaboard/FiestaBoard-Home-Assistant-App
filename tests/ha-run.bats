@@ -7,8 +7,6 @@ setup() {
     SCRIPT="${BATS_TEST_DIRNAME}/../fiestaboard/rootfs/usr/local/bin/ha-run.sh"
     TMP="$(mktemp -d)"
     export HA_RUN_OPTIONS_FILE="${TMP}/options.json"
-    export HA_RUN_DATA_DIR="${TMP}/data"
-    export HA_RUN_APP_DATA_DIR="${TMP}/app-data"
     export HA_RUN_SUPERVISOR_URL="http://127.0.0.1:0"  # invalid by default
     unset SUPERVISOR_TOKEN
     unset MQTT_ENABLED MQTT_BROKER_HOST MQTT_BROKER_PORT MQTT_USERNAME MQTT_PASSWORD
@@ -24,32 +22,6 @@ setup() {
 teardown() {
     [ -n "${SUPERVISOR_PID:-}" ] && kill "${SUPERVISOR_PID}" 2>/dev/null || true
     rm -rf "${TMP}"
-}
-
-# ---------------------------------------------------------------------------
-# link_data_dir
-# ---------------------------------------------------------------------------
-
-@test "link_data_dir creates /app/data symlink to /data" {
-    link_data_dir
-    [ -L "${HA_RUN_APP_DATA_DIR}" ]
-    [ "$(readlink "${HA_RUN_APP_DATA_DIR}")" = "${HA_RUN_DATA_DIR}" ]
-}
-
-@test "link_data_dir is idempotent" {
-    link_data_dir
-    link_data_dir
-    [ -L "${HA_RUN_APP_DATA_DIR}" ]
-    [ "$(readlink "${HA_RUN_APP_DATA_DIR}")" = "${HA_RUN_DATA_DIR}" ]
-}
-
-@test "link_data_dir migrates existing /app/data contents" {
-    mkdir -p "${HA_RUN_APP_DATA_DIR}"
-    echo "preserved" > "${HA_RUN_APP_DATA_DIR}/marker"
-    link_data_dir
-    [ -L "${HA_RUN_APP_DATA_DIR}" ]
-    [ -f "${HA_RUN_DATA_DIR}/marker" ]
-    [ "$(cat "${HA_RUN_DATA_DIR}/marker")" = "preserved" ]
 }
 
 # ---------------------------------------------------------------------------
@@ -241,8 +213,6 @@ EOF
     chmod +x "${stub}"
 
     HA_RUN_OPTIONS_FILE="${HA_RUN_OPTIONS_FILE}" \
-    HA_RUN_DATA_DIR="${HA_RUN_DATA_DIR}" \
-    HA_RUN_APP_DATA_DIR="${HA_RUN_APP_DATA_DIR}" \
     HA_RUN_SUPERVISOR_URL="${HA_RUN_SUPERVISOR_URL}" \
         bash "${SCRIPT}" "${stub}" hello world
 
