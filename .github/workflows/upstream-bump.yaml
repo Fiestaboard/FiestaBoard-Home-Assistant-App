@@ -1,14 +1,21 @@
 ---
 name: Upstream bump
 
-# Polls the upstream FiestaBoard repo for new releases and opens a PR
-# bumping the pinned base image. We can't use Dependabot's docker watcher
-# because the real per-arch pin lives in fiestaboard/build.yaml (a Home
-# Assistant builder spec) which Dependabot doesn't parse.
+# Polls the upstream FiestaBoard repo for new releases and opens an
+# auto-merging PR bumping the pinned base image plus the add-on version
+# (mirroring upstream as `<upstream>-ha.N`). We can't use Dependabot's
+# docker watcher because the real per-arch pin lives in fiestaboard/build.yaml
+# (a Home Assistant builder spec) which Dependabot doesn't parse.
+#
+# Auto-merge requires:
+#   - "Allow auto-merge" enabled in repo settings.
+#   - A `UPSTREAM_BUMP_PAT` secret (PAT with `repo` + `workflow` scope).
+#     Without it, PRs open but auto-merge is skipped because pull_request
+#     CI does not run for PRs created via GITHUB_TOKEN.
 on:
   schedule:
-    # Weekly, Monday 06:00 UTC.
-    - cron: "0 6 * * 1"
+    # Hourly. Idempotent: only acts when upstream actually changed.
+    - cron: "0 * * * *"
   workflow_dispatch:
     inputs:
       version:
@@ -33,56 +40,101 @@ jobs:
           FORCE_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          current="$(grep -E '^\s*amd64:\s*fiestaboard/fiestaboard:' fiestaboard/build.yaml \
+          current_upstream="$(grep -E '^\s*amd64:\s*fiestaboard/fiestaboard:' fiestaboard/build.yaml \
             | sed -E 's/.*fiestaboard:([^ ]+).*/\1/')"
           if [ -n "${FORCE_VERSION}" ]; then
-            latest="${FORCE_VERSION}"
+            latest_upstream="${FORCE_VERSION}"
           else
-            latest="$(gh api repos/Fiestaboard/FiestaBoard/releases/latest --jq '.tag_name' \
+            latest_upstream="$(gh api repos/Fiestaboard/FiestaBoard/releases/latest --jq '.tag_name' \
               | sed 's/^v//')"
           fi
-          echo "current=${current}" >> "$GITHUB_OUTPUT"
-          echo "latest=${latest}"   >> "$GITHUB_OUTPUT"
-          if [ "${current}" = "${latest}" ]; then
+          # New upstream → reset the -ha.N revision to 1. Manual add-on-only
+          # fixes bump the -ha.N counter outside this workflow.
+          new_addon_version="${latest_upstream}-ha.1"
+          {
+            echo "current_upstream=${current_upstream}"
+            echo "latest_upstream=${latest_upstream}"
+            echo "new_addon_version=${new_addon_version}"
+          } >> "$GITHUB_OUTPUT"
+          if [ "${current_upstream}" = "${latest_upstream}" ]; then
             echo "needs_bump=false" >> "$GITHUB_OUTPUT"
           else
             echo "needs_bump=true"  >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Check for auto-merge PAT
+        id: pat
+        env:
+          PAT: ${{ secrets.UPSTREAM_BUMP_PAT }}
+        run: |
+          if [ -n "${PAT}" ]; then
+            echo "present=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Bump pinned files
         if: steps.versions.outputs.needs_bump == 'true'
         env:
-          CURRENT: ${{ steps.versions.outputs.current }}
-          LATEST: ${{ steps.versions.outputs.latest }}
+          CURRENT: ${{ steps.versions.outputs.current_upstream }}
+          LATEST: ${{ steps.versions.outputs.latest_upstream }}
+          NEW_ADDON_VERSION: ${{ steps.versions.outputs.new_addon_version }}
         run: |
           set -euo pipefail
           sed -i "s|fiestaboard/fiestaboard:${CURRENT}|fiestaboard/fiestaboard:${LATEST}|g" \
             fiestaboard/build.yaml fiestaboard/Dockerfile
+          sed -i -E "s|^version:.*|version: \"${NEW_ADDON_VERSION}\"|" fiestaboard/config.yaml
+          today="$(date -u +%Y-%m-%d)"
+          tmp="$(mktemp)"
+          {
+            head -n 5 fiestaboard/CHANGELOG.md
+            printf '\n## %s — %s\n\n### Changed\n\n- Bump upstream FiestaBoard **%s → %s**.\n' \
+              "${NEW_ADDON_VERSION}" "${today}" "${CURRENT}" "${LATEST}"
+            tail -n +6 fiestaboard/CHANGELOG.md
+          } > "${tmp}"
+          mv "${tmp}" fiestaboard/CHANGELOG.md
 
-      - name: Open or update PR
+      - name: Open PR
         if: steps.versions.outputs.needs_bump == 'true'
-        uses: peter-evans/create-pull-request@v8
+        id: pr
+        uses: peter-evans/create-pull-request@v7
         with:
-          branch: upstream/fiestaboard-${{ steps.versions.outputs.latest }}
+          # Use a PAT so the PR's pull_request workflows actually run; PRs
+          # opened with the default GITHUB_TOKEN don't trigger CI.
+          token: ${{ secrets.UPSTREAM_BUMP_PAT || github.token }}
+          branch: upstream/fiestaboard-${{ steps.versions.outputs.latest_upstream }}
           base: main
-          title: "feat: bump upstream FiestaBoard to ${{ steps.versions.outputs.latest }}"
+          title: "feat: bump upstream FiestaBoard to ${{ steps.versions.outputs.latest_upstream }}"
           commit-message: |
-            feat: bump upstream FiestaBoard ${{ steps.versions.outputs.current }} → ${{ steps.versions.outputs.latest }}
+            feat: bump upstream FiestaBoard ${{ steps.versions.outputs.current_upstream }} → ${{ steps.versions.outputs.latest_upstream }}
           body: |
-            Automated bump from the **Upstream bump** workflow.
+            Automated hourly bump from the **Upstream bump** workflow.
 
-            Updates `fiestaboard/build.yaml` (both arches) and
-            `fiestaboard/Dockerfile`'s `BUILD_FROM` default to
-            `fiestaboard/fiestaboard:${{ steps.versions.outputs.latest }}`.
+            Updates `fiestaboard/build.yaml` (both arches), `fiestaboard/Dockerfile`'s
+            `BUILD_FROM` default, `fiestaboard/config.yaml`'s `version:`, and prepends
+            a `CHANGELOG.md` entry.
 
-            **Before merging:**
-            1. Skim the upstream release notes:
-               https://github.com/Fiestaboard/FiestaBoard/releases/tag/v${{ steps.versions.outputs.latest }}
-            2. Look for new `FIESTABOARD_*` env vars or renamed options —
-               update `config.yaml`, `rootfs/usr/local/bin/ha-run.sh`, and
-               `tests/ha-run.bats` if so.
-            3. Bump `version` in `fiestaboard/config.yaml` and add a
-               `CHANGELOG.md` entry before cutting a new add-on release.
+            Auto-merge is enabled when `UPSTREAM_BUMP_PAT` is configured — if CI
+            passes, this merges and `Builder` publishes
+            `fiestaboard/fiestaboard-ha-app:${{ steps.versions.outputs.new_addon_version }}`.
+
+            Upstream release notes:
+            https://github.com/Fiestaboard/FiestaBoard/releases/tag/v${{ steps.versions.outputs.latest_upstream }}
+
+            **Skim before merge** — revert or amend if a new `FIESTABOARD_*` env var
+            or renamed option needs to be wired into `config.yaml`,
+            `rootfs/usr/local/bin/ha-run.sh`, and `tests/ha-run.bats`.
           labels: |
             dependencies
             upstream
+
+      - name: Enable auto-merge
+        if: |
+          steps.versions.outputs.needs_bump == 'true' &&
+          steps.pr.outputs.pull-request-number &&
+          steps.pat.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.UPSTREAM_BUMP_PAT }}
+          PR_NUMBER: ${{ steps.pr.outputs.pull-request-number }}
+        run: |
+          gh pr merge --auto --squash "${PR_NUMBER}"
