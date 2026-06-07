@@ -1,6 +1,6 @@
 # https://developers.home-assistant.io/docs/apps/configuration#app-configuration
 name: FiestaBoard
-version: "6.16.1-ha.1"
+version: "6.16.2-ha.1"
 slug: fiestaboard
 description: Open-source self-hosted platform for controlling Vestaboard split-flap displays
 url: "https://github.com/Fiestaboard/FiestaBoard-Home-Assistant-App/tree/main/fiestaboard"
