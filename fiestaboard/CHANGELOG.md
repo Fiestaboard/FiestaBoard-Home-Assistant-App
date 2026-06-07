@@ -4,10 +4,19 @@ All notable changes to the FiestaBoard Home Assistant App will be documented her
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 0.2.1 — Unreleased
+## 0.2.2 — 2026-06-07
 
 ### Changed
 
+- Bumped upstream FiestaBoard from **6.14.0 → 6.16.0**. 6.16.0 makes nginx's
+  frame-embedding headers configurable via env (upstream
+  [#909](https://github.com/Fiestaboard/FiestaBoard/pull/909)); the add-on
+  now sets `FIESTABOARD_X_FRAME_OPTIONS=OFF` and
+  `FIESTABOARD_FRAME_ANCESTORS='self'` so the FiestaBoard UI renders inside
+  the Home Assistant sidebar iframe. Previously the panel loaded fine in a
+  fresh tab but the sidebar entry was blank because the default
+  `X-Frame-Options: SAMEORIGIN` denied framing under HA Ingress's sandboxed
+  iframe.
 - Hide FiestaBoard's in-app "Update Now" affordance. Updates flow exclusively
   through the Home Assistant add-on store; the upstream sidecar updater is
   not safe to run alongside HA Supervisor's own update mechanism.
