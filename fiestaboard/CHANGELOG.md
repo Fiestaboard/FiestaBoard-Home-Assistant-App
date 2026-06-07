@@ -4,6 +4,21 @@ All notable changes to the FiestaBoard Home Assistant App will be documented her
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 6.16.2-ha.1 — 2026-06-07
+
+### Changed
+
+- Bumped upstream FiestaBoard from **6.16.1 → 6.16.2**. 6.16.2 ships
+  upstream [#914](https://github.com/Fiestaboard/FiestaBoard/pull/914),
+  a follow-up to the 6.16.1 Ingress fix that also rewrites CSS bodies
+  and unquoted `url(/_next/...)` references. Without it the sidebar
+  iframe rendered with broken typography (`@font-face` URLs in the
+  `text/css` response 404'd against HA's origin root), which looked
+  like a near-blank dark screen plus two woff2 errors in the console.
+  No add-on-side changes -- this picks up automatically because the
+  `FIESTABOARD_INGRESS_PATH_REWRITE=true` export was already wired in
+  6.16.1-ha.1.
+
 ## 6.16.1-ha.1 — 2026-06-07
 
 ### Changed
