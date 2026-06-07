@@ -8,7 +8,7 @@
 # Then it overrides CMD so the Home Assistant Supervisor launches our shim
 # instead of supervisord directly. The shim exec's into FiestaBoard's
 # upstream /app/entrypoint.sh after exporting env vars.
-ARG BUILD_FROM=fiestaboard/fiestaboard:6.16.2
+ARG BUILD_FROM=fiestaboard/fiestaboard:6.16.3
 # hadolint ignore=DL3006
 FROM ${BUILD_FROM}
 
