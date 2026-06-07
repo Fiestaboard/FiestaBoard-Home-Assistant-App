@@ -111,32 +111,33 @@ JSON
     [ -z "${FIESTABOARD_SESSION_TTL_SECONDS:-}" ]
 }
 
-# Frame-embedding and Ingress base-path env vars are always-on for HA
-# installs because the add-on is *only* ever framed by HA Ingress. These
-# tests pin the defaults so an upstream rename or a refactor of
-# apply_options can't silently break the sidebar iframe.
+# The Ingress framing + base-path env vars were always-on while we used HA
+# Supervisor Ingress. As of 6.16.2-ha.2 we serve via the LAN port instead
+# (see config.yaml for the rationale) so apply_options must *not* default
+# any of those vars -- operators who put their own reverse proxy in front
+# can set them by hand if they need to.
 
-@test "apply_options defaults the HA Ingress framing + base-path env vars" {
+@test "apply_options leaves the HA Ingress framing + base-path env vars unset by default" {
     cat > "${HA_RUN_OPTIONS_FILE}" <<'JSON'
 {}
 JSON
     apply_options
-    [ "${FIESTABOARD_X_FRAME_OPTIONS}"       = "OFF" ]
-    [ "${FIESTABOARD_FRAME_ANCESTORS}"       = "'self'" ]
-    [ "${FIESTABOARD_INGRESS_PATH_REWRITE}"  = "true" ]
+    [ -z "${FIESTABOARD_X_FRAME_OPTIONS:-}" ]
+    [ -z "${FIESTABOARD_FRAME_ANCESTORS:-}" ]
+    [ -z "${FIESTABOARD_INGRESS_PATH_REWRITE:-}" ]
 }
 
-@test "apply_options respects operator overrides for framing + base-path env vars" {
+@test "apply_options preserves operator-supplied framing + base-path env vars" {
     cat > "${HA_RUN_OPTIONS_FILE}" <<'JSON'
 {}
 JSON
     export FIESTABOARD_X_FRAME_OPTIONS=DENY
     export FIESTABOARD_FRAME_ANCESTORS="'self' https://my.host"
-    export FIESTABOARD_INGRESS_PATH_REWRITE=false
+    export FIESTABOARD_INGRESS_PATH_REWRITE=true
     apply_options
     [ "${FIESTABOARD_X_FRAME_OPTIONS}"       = "DENY" ]
     [ "${FIESTABOARD_FRAME_ANCESTORS}"       = "'self' https://my.host" ]
-    [ "${FIESTABOARD_INGRESS_PATH_REWRITE}"  = "false" ]
+    [ "${FIESTABOARD_INGRESS_PATH_REWRITE}"  = "true" ]
 }
 
 # ---------------------------------------------------------------------------

@@ -46,21 +46,48 @@ intentionally only surfaces the bootstrap-critical fields.
 | `timezone` | string | IANA timezone (e.g. `America/Los_Angeles`). |
 | `mqtt_enabled` | bool | Enable MQTT integration (auto-wired to HA's broker if installed). |
 | `fiestaboard_external_url` | url | URL shown as the "Visit" link on FiestaBoard's MQTT device page in HA. |
-| `fiestaboard_auth_enabled` | bool | FiestaBoard 6.0+ in-app login. Defaults **off** because HA Ingress already authenticates web access. Turn this on if you publish the LAN port (`4420`) to the internet. |
+| `fiestaboard_auth_enabled` | bool | FiestaBoard 6.0+ in-app login. Defaults **off** to keep the LAN port (`4420`) reachable without an extra login on a trusted network. Turn this on if you publish port `4420` to the internet — this add-on is no longer behind HA's Ingress auth wrapper as of 6.16.2-ha.2. |
 | `fiestaboard_session_ttl_seconds` | int | Session lifetime when `fiestaboard_auth_enabled` is on. `0` means use upstream's default (7 days). |
 | `fiestaboard_mcp_token` | password | Pre-shared bearer token for FiestaBoard's `/mcp` endpoint (Claude Desktop / Claude Code). Only relevant when in-app auth is on. |
 | `log_level` | enum | One of `debug`, `info`, `warning`, `error`. |
 
 ## Network access
 
-FiestaBoard is reachable in three ways:
+FiestaBoard is reachable on the LAN at port `4420`:
 
-1. **Ingress** (recommended) — click **Open Web UI** in the add-on page or the
-   sidebar entry. No port exposure required.
-2. **Host port `4420`** — `http://<your-ha-host>:4420`. Convenient for browsers
-   on the same network and for the FiestaBoard mobile experience.
-3. **mDNS** — if your network supports `.local` resolution, FiestaBoard
-   advertises itself; try `http://homeassistant.local:4420`.
+1. **"Open Web UI" button** — on the add-on page in HA. Opens
+   `http://<your-ha-host>:4420` in a new tab.
+2. **mDNS** — if your network supports `.local` resolution, try
+   `http://homeassistant.local:4420`.
+3. **Sidebar shortcut (optional)** — add a `panel_iframe:` entry in your
+   HA `configuration.yaml` if you want a sidebar link:
+
+   ```yaml
+   panel_iframe:
+     fiestaboard:
+       title: FiestaBoard
+       icon: mdi:billboard
+       url: http://homeassistant.local:4420
+       require_admin: false
+   ```
+
+### Why not HA Supervisor Ingress?
+
+Earlier 6.16.x-ha.N releases exposed the panel via HA Ingress. Ingress
+mounts the add-on under a per-installation URL prefix
+(`/api/hassio_ingress/<token>/…`) signaled via the `X-Ingress-Path`
+header. FiestaBoard is a Next.js app, and Next.js's client runtime
+constructs dynamic asset URLs (font preloads emitted by
+`ReactDOM.preload` during hydration, lazy chunks past navigation, etc.)
+from a *build-time* `assetPrefix` that is empty in our build. Server-side
+HTML/CSS rewriting (Fiestaboard/FiestaBoard#913 + #914) got the initial
+wave through Ingress correctly, but everything the client computed
+afterwards still hit the bare `/_next/...` origin root, 404'd against HA
+core, and the sidebar iframe rendered with broken typography and missing
+lazy assets. The mismatch is architectural — Next.js's `assetPrefix` is
+build-time-static, HA Ingress's prefix is per-installation-dynamic, and
+they don't compose without an upstream Next.js change we don't yet have.
+LAN-port access sidesteps the whole problem.
 
 ## MQTT auto-discovery
 
@@ -78,8 +105,9 @@ ships with `fiestaboard_auth_enabled: false`, which keeps the previous
 behavior: anyone who reaches the FiestaBoard UI can use it. That's the right
 default for two reasons:
 
-1. **Home Assistant Ingress already authenticates** — the "Open Web UI" path
-   from the sidebar is gated by HA's own login.
+1. **Trusted-LAN deployment is the common case** — the LAN port (`4420`)
+   is only reachable inside your network unless you explicitly publish it,
+   and most users keep it private.
 2. **Webhook callers (HA automations, scripts) keep working** — `POST
    /api/plugins/{plugin_id}/receive` would otherwise return `401`.
 

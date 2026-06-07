@@ -62,40 +62,19 @@ apply_options() {
         return 0
     fi
 
-    # HA Ingress embeds the add-on UI inside an iframe under HA's own origin.
-    # Upstream FiestaBoard's nginx defaults to `X-Frame-Options: SAMEORIGIN`,
-    # which a sandboxed iframe context can treat as an opaque cross-origin
-    # and deny.  Disable XFO and emit a CSP `frame-ancestors 'self'` instead;
-    # works in modern browsers and still restricts framing to same-origin.
+    # The add-on previously used HA Ingress and needed XFO disabled + CSP
+    # frame-ancestors set + the X-Ingress-Path rewrite snippet enabled. As of
+    # 6.16.2-ha.2 we serve via the LAN port instead (see config.yaml for the
+    # rationale -- Next.js's build-time `assetPrefix` is incompatible with
+    # Ingress's per-installation dynamic prefix). When accessed directly,
+    # framing isn't in play, so we leave upstream's defaults
+    # (`X-Frame-Options: SAMEORIGIN`, no frame-ancestors override) and skip
+    # the proxy snippet entirely so HTML responses keep their gzip + skip
+    # `sub_filter` buffering.
     #
-    # The env vars are honored by upstream FiestaBoard >= 6.16.0 (see PR
-    # https://github.com/Fiestaboard/FiestaBoard/pull/909).  On older
-    # upstream images these exports are no-ops, so it is safe to set them
-    # unconditionally; they take effect once BUILD_FROM in our Dockerfile
-    # picks up the upstream release that ships the configurable snippet.
-    #
-    # The literal single quotes around `self` are required CSP syntax (the
-    # rendered nginx directive must read `frame-ancestors 'self'`), not
-    # shell quoting -- so shellcheck's SC2089/SC2090 warnings are false
-    # positives here.
-    [ -n "${FIESTABOARD_X_FRAME_OPTIONS:-}" ] || FIESTABOARD_X_FRAME_OPTIONS=OFF
-    # shellcheck disable=SC2089
-    [ -n "${FIESTABOARD_FRAME_ANCESTORS:-}" ] || FIESTABOARD_FRAME_ANCESTORS="'self'"
-    # shellcheck disable=SC2090
-    export FIESTABOARD_X_FRAME_OPTIONS FIESTABOARD_FRAME_ANCESTORS
-
-    # Reverse-proxy base-path rewriting. HA Supervisor sends `X-Ingress-Path`
-    # on every proxied request; upstream FiestaBoard >= 6.16.1 (see PR
-    # https://github.com/Fiestaboard/FiestaBoard/pull/913) honors that header
-    # via nginx sub_filter when this env var is set, rewriting absolute
-    # `/_next/` and `/api/` paths in HTML so the browser routes them back
-    # through Ingress instead of fetching from HA's origin root and 404ing.
-    #
-    # Always-on for HA installs: this add-on only ever runs behind Ingress,
-    # so there is no reason to leave the env var off. On older upstream
-    # images this export is a no-op.
-    [ -n "${FIESTABOARD_INGRESS_PATH_REWRITE:-}" ] || FIESTABOARD_INGRESS_PATH_REWRITE=true
-    export FIESTABOARD_INGRESS_PATH_REWRITE
+    # Operators who put their own reverse proxy (Caddy, traefik, etc.) in
+    # front of the LAN port can still flip these via add-on options/env --
+    # the upstream image honors them unchanged.
 
     export_if_set BOARD_API_MODE          "$(opt '.board_api_mode')"
     export_if_set BOARD_HOST              "$(opt '.board_host')"

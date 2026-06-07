@@ -4,6 +4,37 @@ All notable changes to the FiestaBoard Home Assistant App will be documented her
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 6.16.2-ha.2 — 2026-06-07
+
+### Changed
+
+- **Stopped using HA Supervisor Ingress for the FiestaBoard panel.** Upstream
+  rewrites (Fiestaboard/FiestaBoard#913, #914) got the initial HTML/CSS
+  through Ingress correctly, but Next.js's client runtime constructs
+  dynamic asset URLs (font preloads, lazy chunks past navigation) from a
+  *build-time* `assetPrefix` that's empty in our build. HA Ingress's URL
+  prefix is *per-installation-dynamic*. Those two don't compose — the
+  client kept fetching `/_next/static/media/…woff2` against HA's origin
+  root and 404'ing, so the sidebar iframe rendered with no typography.
+- The add-on now exposes itself via the LAN port (`4420`) instead. HA's
+  add-on page surfaces an **Open Web UI** button (replacing the broken
+  sidebar entry) that links to `http://<your-ha-host>:4420`. You can also
+  reach FiestaBoard from any device on your LAN at that URL, or add a
+  `panel_iframe:` entry in your HA `configuration.yaml` pointing to it if
+  you want a sidebar shortcut.
+- `ha-run.sh` no longer exports `FIESTABOARD_X_FRAME_OPTIONS=OFF`,
+  `FIESTABOARD_FRAME_ANCESTORS='self'`, or
+  `FIESTABOARD_INGRESS_PATH_REWRITE=true`. Direct LAN access doesn't need
+  any of them, and the `sub_filter` snippet adds buffering overhead for no
+  benefit when there is no proxy in front. Operators running their own
+  reverse proxy can still set them by hand.
+
+### Caveats
+
+- The add-on is no longer behind HA's Ingress auth wrapper. If you expose
+  port 4420 to the public internet, set `fiestaboard_auth_enabled: true`
+  in add-on options so FiestaBoard's own login layer is active.
+
 ## 6.16.2-ha.1 — 2026-06-07
 
 ### Changed

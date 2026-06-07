@@ -1,6 +1,6 @@
 # https://developers.home-assistant.io/docs/apps/configuration#app-configuration
 name: FiestaBoard
-version: "6.16.2-ha.1"
+version: "6.16.2-ha.2"
 slug: fiestaboard
 description: Open-source self-hosted platform for controlling Vestaboard split-flap displays
 url: "https://github.com/Fiestaboard/FiestaBoard-Home-Assistant-App/tree/main/fiestaboard"
@@ -22,19 +22,36 @@ image: "fiestaboard/fiestaboard-ha-app"
 boot: auto
 startup: services
 
-# Sidebar / Ingress integration
-ingress: true
-ingress_port: 3000
-panel_icon: mdi:billboard
-panel_title: FiestaBoard
+# Web UI access.
+#
+# We DON'T use HA Supervisor Ingress for the FiestaBoard panel. Ingress mounts
+# add-ons under a per-installation URL prefix (`/api/hassio_ingress/<token>/…`)
+# and signals it via the `X-Ingress-Path` header, expecting the add-on to
+# rewrite all asset paths to include that prefix. FiestaBoard is a Next.js app,
+# and Next.js's client runtime constructs dynamic asset URLs (e.g. font
+# preloads emitted by `ReactDOM.preload` during hydration) from a *build-time*
+# `assetPrefix` baked into the JS bundle — empty in our build. Server-side
+# HTML/CSS rewriting (Fiestaboard/FiestaBoard#913, #914) gets the initial
+# wave through, but anything the client computes later still hits the bare
+# `/_next/...` origin root, 404s against HA core, and the sidebar iframe ends
+# up missing typography and other lazy assets. The mismatch is architectural:
+# Next.js's `assetPrefix` is build-time-static, HA Ingress's prefix is
+# per-installation-dynamic — they don't compose without an upstream Next.js
+# patch we don't yet have.
+#
+# Until then, the panel surfaces as an "Open Web UI" button. HA replaces
+# [HOST] with the add-on's hostname (resolvable inside the HA network) and
+# [PORT:3000] with the LAN-mapped host port (4420). Users can also reach
+# FiestaBoard directly at http://<your-ha-host>:4420.
+webui: "http://[HOST]:[PORT:3000]"
 
-# Direct host port for mDNS / `.local` access from other devices on the LAN.
-# FiestaBoard's UI listens on container port 3000; we map it to 4420 on the host
-# (the default port used by the standalone Docker image).
+# Direct host port for `.local` / IP access from other devices on the LAN.
+# FiestaBoard's UI listens on container port 3000; we map it to 4420 on the
+# host (the default port used by the standalone Docker image).
 ports:
   "3000/tcp": 4420
 ports_description:
-  "3000/tcp": Web UI (also reachable via Ingress; this exposes it on the LAN for mDNS)
+  "3000/tcp": FiestaBoard web UI — reachable from any device on your LAN.
 
 # Persistent data:
 #   - /data            -> Home Assistant's per-add-on data dir. Holds
@@ -78,10 +95,11 @@ options:
   timezone: ""
   mqtt_enabled: true
   fiestaboard_external_url: ""
-  # Upstream FiestaBoard 6.0+ ships secure-by-default auth. HA Ingress already
-  # gates web access behind HA's own login, so we default this OFF — flipping
-  # it on adds FiestaBoard's own username/password layer (recommended only if
-  # you also publish the LAN port to the internet).
+  # Upstream FiestaBoard 6.0+ ships secure-by-default auth. We default this
+  # OFF so the LAN port is reachable without an extra in-app login. Flip it
+  # to true if you want FiestaBoard's own username/password gate (strongly
+  # recommended if you publish the LAN port to the internet, since this
+  # add-on is no longer behind HA's Ingress auth wrapper).
   fiestaboard_auth_enabled: false
   fiestaboard_session_ttl_seconds: 0
   fiestaboard_mcp_token: ""
