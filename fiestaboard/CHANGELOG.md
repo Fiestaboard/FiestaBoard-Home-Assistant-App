@@ -4,6 +4,34 @@ All notable changes to the FiestaBoard Home Assistant App will be documented her
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 6.16.3-ha.1 — 2026-06-07
+
+### Changed
+
+- Bumped upstream FiestaBoard from **6.16.2 → 6.16.3** to pick up
+  [Fiestaboard/FiestaBoard#915](https://github.com/Fiestaboard/FiestaBoard/pull/915),
+  which injects a runtime URL-patching `<script>` as the first child of
+  `<head>` when the request comes via HA Ingress. The script patches
+  Next.js's client-runtime URL construction
+  (`HTMLLinkElement.prototype.href` setter, `setAttribute`, `window.fetch`,
+  `XMLHttpRequest.prototype.open`) so dynamic asset requests emitted
+  after hydration (font preloads via `ReactDOM.preload`, lazy chunks)
+  honor `X-Ingress-Path`. Without this patch Next.js's build-time-static
+  `assetPrefix=""` produced bare `/_next/...` requests that 404'd against
+  HA's origin root and broke typography in the sidebar iframe.
+- **Restored `ingress: true` / `panel_icon` / `panel_title`.** The 6.16.2-ha.2
+  release dropped Ingress and surfaced the panel via the LAN port because
+  the sidebar iframe was unusable. With #915 in place, the embed works
+  end-to-end (HTML, CSS, *and* dynamically-constructed asset URLs all go
+  through Ingress correctly) so the sidebar entry is back.
+- `ha-run.sh` re-exports `FIESTABOARD_X_FRAME_OPTIONS=OFF`,
+  `FIESTABOARD_FRAME_ANCESTORS='self'`, and
+  `FIESTABOARD_INGRESS_PATH_REWRITE=true` (it had stopped in 6.16.2-ha.2)
+  so upstream's snippet + script-injection are active. Operators behind
+  a non-HA reverse proxy can still override any of them by hand.
+- LAN port (`4420`) stays open as a fallback / for direct mobile access
+  on the local network. The panel itself now lives behind Ingress.
+
 ## 6.16.2-ha.2 — 2026-06-07
 
 ### Changed

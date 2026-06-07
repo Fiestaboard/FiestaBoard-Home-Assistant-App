@@ -62,19 +62,43 @@ apply_options() {
         return 0
     fi
 
-    # The add-on previously used HA Ingress and needed XFO disabled + CSP
-    # frame-ancestors set + the X-Ingress-Path rewrite snippet enabled. As of
-    # 6.16.2-ha.2 we serve via the LAN port instead (see config.yaml for the
-    # rationale -- Next.js's build-time `assetPrefix` is incompatible with
-    # Ingress's per-installation dynamic prefix). When accessed directly,
-    # framing isn't in play, so we leave upstream's defaults
-    # (`X-Frame-Options: SAMEORIGIN`, no frame-ancestors override) and skip
-    # the proxy snippet entirely so HTML responses keep their gzip + skip
-    # `sub_filter` buffering.
+    # HA Ingress wiring. Three env vars upstream FiestaBoard honors:
     #
-    # Operators who put their own reverse proxy (Caddy, traefik, etc.) in
-    # front of the LAN port can still flip these via add-on options/env --
-    # the upstream image honors them unchanged.
+    #   FIESTABOARD_X_FRAME_OPTIONS=OFF
+    #     HA Ingress embeds the add-on UI inside a sandboxed iframe under
+    #     HA's own origin. Upstream nginx's default `X-Frame-Options:
+    #     SAMEORIGIN` denies framing in that context; setting to OFF
+    #     removes the legacy header so the CSP `frame-ancestors` directive
+    #     below can take over.
+    #
+    #   FIESTABOARD_FRAME_ANCESTORS='self'
+    #     Allows framing from same-origin (HA Ingress qualifies). The
+    #     single quotes are required CSP syntax and must reach nginx
+    #     literally -- shellcheck SC2089/SC2090 are false positives.
+    #
+    #   FIESTABOARD_INGRESS_PATH_REWRITE=true
+    #     Activates upstream's `location /` snippet. The snippet does two
+    #     things: it `sub_filter`-rewrites `/_next/` and `/api/` paths in
+    #     the HTML and CSS response bodies to prefix `$http_x_ingress_path`
+    #     (Fiestaboard/FiestaBoard#913, #914), AND injects a runtime
+    #     URL-patching `<script>` as the first child of `<head>` that
+    #     patches Next.js's client-runtime URL construction
+    #     (`HTMLLinkElement.href` setter, `setAttribute`, `fetch`, XHR) so
+    #     `ReactDOM.preload` calls during hydration honor the prefix too
+    #     (Fiestaboard/FiestaBoard#915). Without #915 the initial wave
+    #     loaded but font preloads emitted by `next/font` post-hydration
+    #     stayed bare and broke typography.
+    #
+    # All three are always-on for HA installs because the add-on is *only*
+    # ever reached behind Ingress (the LAN port stays open as a fallback
+    # but the panel surfaces via Ingress). Operators can still override
+    # any of them by hand if they're putting their own proxy in front.
+    [ -n "${FIESTABOARD_X_FRAME_OPTIONS:-}" ] || FIESTABOARD_X_FRAME_OPTIONS=OFF
+    # shellcheck disable=SC2089
+    [ -n "${FIESTABOARD_FRAME_ANCESTORS:-}" ] || FIESTABOARD_FRAME_ANCESTORS="'self'"
+    [ -n "${FIESTABOARD_INGRESS_PATH_REWRITE:-}" ] || FIESTABOARD_INGRESS_PATH_REWRITE=true
+    # shellcheck disable=SC2090
+    export FIESTABOARD_X_FRAME_OPTIONS FIESTABOARD_FRAME_ANCESTORS FIESTABOARD_INGRESS_PATH_REWRITE
 
     export_if_set BOARD_API_MODE          "$(opt '.board_api_mode')"
     export_if_set BOARD_HOST              "$(opt '.board_host')"
