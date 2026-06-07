@@ -4,6 +4,24 @@ All notable changes to the FiestaBoard Home Assistant App will be documented her
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 6.16.1-ha.1 — 2026-06-07
+
+### Changed
+
+- Bumped upstream FiestaBoard from **6.16.0 → 6.16.1**. 6.16.1 ships
+  upstream [#913](https://github.com/Fiestaboard/FiestaBoard/pull/913),
+  which makes nginx honor the `X-Ingress-Path` header that HA Supervisor
+  sends on every proxied request. The add-on now exports
+  `FIESTABOARD_INGRESS_PATH_REWRITE=true` so the upstream snippet
+  rewrites absolute `/_next/` and `/api/` paths in HTML to include the
+  Ingress URL prefix. Without this, the browser resolved Next.js chunk
+  URLs against HA's origin root, bypassed Ingress, 404'd, and the
+  sidebar iframe showed "Refused to execute … nosniff" errors with a
+  broken UI even though framing was now allowed.
+- Switched the add-on versioning scheme to mirror the upstream
+  FiestaBoard release (`<upstream>-ha.N`). The hourly upstream-bump
+  workflow uses this scheme; this release locks it in.
+
 ## 0.2.2 — 2026-06-07
 
 ### Changed

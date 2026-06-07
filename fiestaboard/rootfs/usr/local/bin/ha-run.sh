@@ -84,6 +84,19 @@ apply_options() {
     # shellcheck disable=SC2090
     export FIESTABOARD_X_FRAME_OPTIONS FIESTABOARD_FRAME_ANCESTORS
 
+    # Reverse-proxy base-path rewriting. HA Supervisor sends `X-Ingress-Path`
+    # on every proxied request; upstream FiestaBoard >= 6.16.1 (see PR
+    # https://github.com/Fiestaboard/FiestaBoard/pull/913) honors that header
+    # via nginx sub_filter when this env var is set, rewriting absolute
+    # `/_next/` and `/api/` paths in HTML so the browser routes them back
+    # through Ingress instead of fetching from HA's origin root and 404ing.
+    #
+    # Always-on for HA installs: this add-on only ever runs behind Ingress,
+    # so there is no reason to leave the env var off. On older upstream
+    # images this export is a no-op.
+    [ -n "${FIESTABOARD_INGRESS_PATH_REWRITE:-}" ] || FIESTABOARD_INGRESS_PATH_REWRITE=true
+    export FIESTABOARD_INGRESS_PATH_REWRITE
+
     export_if_set BOARD_API_MODE          "$(opt '.board_api_mode')"
     export_if_set BOARD_HOST              "$(opt '.board_host')"
     export_if_set BOARD_LOCAL_API_KEY     "$(opt '.board_local_api_key')"
