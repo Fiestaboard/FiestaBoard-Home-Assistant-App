@@ -62,6 +62,21 @@ apply_options() {
         return 0
     fi
 
+    # HA Ingress embeds the add-on UI inside an iframe under HA's own origin.
+    # Upstream FiestaBoard's nginx defaults to `X-Frame-Options: SAMEORIGIN`,
+    # which a sandboxed iframe context can treat as an opaque cross-origin
+    # and deny.  Disable XFO and emit a CSP `frame-ancestors 'self'` instead;
+    # works in modern browsers and still restricts framing to same-origin.
+    #
+    # The env vars are honored by upstream FiestaBoard >= TODO (see PR
+    # https://github.com/Fiestaboard/FiestaBoard/pull/<TBD>).  On older
+    # upstream images these exports are no-ops, so it is safe to set them
+    # unconditionally; they take effect once BUILD_FROM in our Dockerfile
+    # picks up the upstream release that ships the configurable snippet.
+    : "${FIESTABOARD_X_FRAME_OPTIONS:=OFF}"
+    : "${FIESTABOARD_FRAME_ANCESTORS:="'self'"}"
+    export FIESTABOARD_X_FRAME_OPTIONS FIESTABOARD_FRAME_ANCESTORS
+
     export_if_set BOARD_API_MODE          "$(opt '.board_api_mode')"
     export_if_set BOARD_HOST              "$(opt '.board_host')"
     export_if_set BOARD_LOCAL_API_KEY     "$(opt '.board_local_api_key')"
