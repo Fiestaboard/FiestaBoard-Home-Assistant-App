@@ -68,13 +68,20 @@ apply_options() {
     # and deny.  Disable XFO and emit a CSP `frame-ancestors 'self'` instead;
     # works in modern browsers and still restricts framing to same-origin.
     #
-    # The env vars are honored by upstream FiestaBoard >= TODO (see PR
-    # https://github.com/Fiestaboard/FiestaBoard/pull/<TBD>).  On older
+    # The env vars are honored by upstream FiestaBoard >= 6.16.0 (see PR
+    # https://github.com/Fiestaboard/FiestaBoard/pull/909).  On older
     # upstream images these exports are no-ops, so it is safe to set them
     # unconditionally; they take effect once BUILD_FROM in our Dockerfile
     # picks up the upstream release that ships the configurable snippet.
-    : "${FIESTABOARD_X_FRAME_OPTIONS:=OFF}"
-    : "${FIESTABOARD_FRAME_ANCESTORS:="'self'"}"
+    #
+    # The literal single quotes around `self` are required CSP syntax (the
+    # rendered nginx directive must read `frame-ancestors 'self'`), not
+    # shell quoting -- so shellcheck's SC2089/SC2090 warnings are false
+    # positives here.
+    [ -n "${FIESTABOARD_X_FRAME_OPTIONS:-}" ] || FIESTABOARD_X_FRAME_OPTIONS=OFF
+    # shellcheck disable=SC2089
+    [ -n "${FIESTABOARD_FRAME_ANCESTORS:-}" ] || FIESTABOARD_FRAME_ANCESTORS="'self'"
+    # shellcheck disable=SC2090
     export FIESTABOARD_X_FRAME_OPTIONS FIESTABOARD_FRAME_ANCESTORS
 
     export_if_set BOARD_API_MODE          "$(opt '.board_api_mode')"
