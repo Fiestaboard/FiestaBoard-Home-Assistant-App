@@ -4,6 +4,42 @@ All notable changes to the FiestaBoard Home Assistant App will be documented her
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 6.17.1-ha.1 — 2026-06-07
+
+### Changed
+
+- Bumped upstream FiestaBoard from **6.16.3 → 6.17.1** to pick up
+  [Fiestaboard/FiestaBoard#918](https://github.com/Fiestaboard/FiestaBoard/pull/918).
+  6.17.1 shrinks the runtime URL-patching script injected under HA
+  Ingress to only override `HTMLLinkElement.prototype.href` — the React
+  19 path `ReactDOM.preload` uses for `next/font` preloads, which was
+  the originally-diagnosed bug.
+- The previous version (6.16.3, shipped in 6.16.3-ha.1) also patched
+  `Element.prototype.setAttribute`, `window.fetch`,
+  `XMLHttpRequest.prototype.open`, and the script/img `src` setters.
+  Live diagnostics in Safari on the user install showed React 19's
+  hydration hung in a permanently-pending Suspense state
+  (`<div hidden><!--$--><!--/$--></div>`) — React 19 calls `setAttribute`
+  and `fetch` heavily during hydration, and replacing them with
+  wrappers (even passthroughs) was enough to trip the reconciliation.
+  Jsdom didn't surface this because its React-DOM implementation isn't
+  real. The 6.17.1 patch is bit-for-bit identical to the platform for
+  every API except `link.href`, so the React internals see native
+  behavior everywhere they touch.
+- No add-on-side changes besides the version bump — the
+  `FIESTABOARD_INGRESS_PATH_REWRITE=true` export wired in 6.16.1-ha.1
+  continues to apply.
+
+### Trade-off documented
+
+Dynamically-constructed URLs that don't pass through the link-href
+setter (e.g. lazy chunk imports, fetch URLs to non-Ingress endpoints)
+won't be rewritten by 6.17.1's narrower patch. In practice the
+static-HTML sub_filter (#913) already covers the lazy chunk URLs
+because they're declared as `<link rel="preload" as="script">` in the
+initial response, and `ReactDOM.preload` font preloads — the
+high-value case — go through `link.href`.
+
 ## 6.16.3-ha.1 — 2026-06-07
 
 ### Changed
