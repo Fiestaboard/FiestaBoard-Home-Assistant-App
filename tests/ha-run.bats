@@ -14,6 +14,7 @@ setup() {
     unset WEATHER_PROVIDER WEATHER_API_KEY WEATHER_LOCATION TIMEZONE
     unset FIESTABOARD_EXTERNAL_URL LOG_LEVEL
     unset FIESTABOARD_AUTH_ENABLED FIESTABOARD_SESSION_TTL_SECONDS FIESTABOARD_MCP_TOKEN
+    unset FIESTABOARD_X_FRAME_OPTIONS FIESTABOARD_FRAME_ANCESTORS FIESTABOARD_INGRESS_PATH_REWRITE
     unset HOME_ASSISTANT_BASE_URL HOME_ASSISTANT_ACCESS_TOKEN
 
     # shellcheck disable=SC1090
@@ -108,6 +109,34 @@ JSON
 JSON
     apply_options
     [ -z "${FIESTABOARD_SESSION_TTL_SECONDS:-}" ]
+}
+
+# Frame-embedding and Ingress base-path env vars are always-on for HA
+# installs because the add-on is *only* ever framed by HA Ingress. These
+# tests pin the defaults so an upstream rename or a refactor of
+# apply_options can't silently break the sidebar iframe.
+
+@test "apply_options defaults the HA Ingress framing + base-path env vars" {
+    cat > "${HA_RUN_OPTIONS_FILE}" <<'JSON'
+{}
+JSON
+    apply_options
+    [ "${FIESTABOARD_X_FRAME_OPTIONS}"       = "OFF" ]
+    [ "${FIESTABOARD_FRAME_ANCESTORS}"       = "'self'" ]
+    [ "${FIESTABOARD_INGRESS_PATH_REWRITE}"  = "true" ]
+}
+
+@test "apply_options respects operator overrides for framing + base-path env vars" {
+    cat > "${HA_RUN_OPTIONS_FILE}" <<'JSON'
+{}
+JSON
+    export FIESTABOARD_X_FRAME_OPTIONS=DENY
+    export FIESTABOARD_FRAME_ANCESTORS="'self' https://my.host"
+    export FIESTABOARD_INGRESS_PATH_REWRITE=false
+    apply_options
+    [ "${FIESTABOARD_X_FRAME_OPTIONS}"       = "DENY" ]
+    [ "${FIESTABOARD_FRAME_ANCESTORS}"       = "'self' https://my.host" ]
+    [ "${FIESTABOARD_INGRESS_PATH_REWRITE}"  = "false" ]
 }
 
 # ---------------------------------------------------------------------------
