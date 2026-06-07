@@ -45,4 +45,4 @@ configuration:
     name: Log level
     description: Verbosity of FiestaBoard's logs.
 network:
-  3000/tcp: Web UI port (also reachable via Ingress).
+  3000/tcp: FiestaBoard web UI — reachable from any device on your LAN.

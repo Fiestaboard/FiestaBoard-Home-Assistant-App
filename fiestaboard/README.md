@@ -11,11 +11,11 @@ This add-on packages FiestaBoard for the Home Assistant Supervisor.
 
 ## Features
 
-- Sidebar entry via Home Assistant Ingress.
+- One-click **Open Web UI** in the add-on page (LAN port `4420`).
 - Auto MQTT discovery — works zero-config with the official Mosquitto add-on.
 - Talks to Home Assistant core via the Supervisor proxy (no token needed).
 - All settings persisted in `/app/data` (HA `addon_config` volume) and captured by HA backups.
-- Direct LAN access on host port `4420` for mDNS / `.local` URLs.
+- mDNS / `.local` URLs supported on the same port (e.g. `http://homeassistant.local:4420`).
 
 See the **Documentation** tab for setup details and the
 [upstream README](https://github.com/Fiestaboard/FiestaBoard) for plugin docs.
