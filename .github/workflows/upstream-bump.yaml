@@ -1,17 +1,16 @@
 ---
 name: Upstream bump
 
-# Polls the upstream FiestaBoard repo for new releases and opens an
-# auto-merging PR bumping the pinned base image plus the add-on version
-# (mirroring upstream as `<upstream>-ha.N`). We can't use Dependabot's
-# docker watcher because the real per-arch pin lives in fiestaboard/build.yaml
-# (a Home Assistant builder spec) which Dependabot doesn't parse.
+# Polls the upstream FiestaBoard repo for new releases, opens a PR
+# bumping the pinned base image plus the add-on version (mirroring
+# upstream as `<upstream>-ha.N`), and squash-merges it in the same job.
+# We can't use Dependabot's docker watcher because the real per-arch
+# pin lives in fiestaboard/build.yaml (a Home Assistant builder spec)
+# which Dependabot doesn't parse.
 #
-# Auto-merge requires:
-#   - "Allow auto-merge" enabled in repo settings.
-#   - A `UPSTREAM_BUMP_PAT` secret (PAT with `repo` + `workflow` scope).
-#     Without it, PRs open but auto-merge is skipped because pull_request
-#     CI does not run for PRs created via GITHUB_TOKEN.
+# `main` has no required reviews or status checks, so the merge lands
+# immediately. CI (`lint`/`test`) runs on the post-merge `push`, not on
+# the PR — broken bumps will turn `main` red rather than being blocked.
 on:
   schedule:
     # Hourly. Idempotent: only acts when upstream actually changed.
@@ -62,17 +61,6 @@ jobs:
             echo "needs_bump=true"  >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Check for auto-merge PAT
-        id: pat
-        env:
-          PAT: ${{ secrets.UPSTREAM_BUMP_PAT }}
-        run: |
-          if [ -n "${PAT}" ]; then
-            echo "present=true"  >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Close stale bump PRs
         # Older bump PRs rot once main moves — `config.yaml` and CHANGELOG.md
         # conflict, auto-merge stalls. Close them before opening the new one
@@ -121,9 +109,6 @@ jobs:
         id: pr
         uses: peter-evans/create-pull-request@v8
         with:
-          # Use a PAT so the PR's pull_request workflows actually run; PRs
-          # opened with the default GITHUB_TOKEN don't trigger CI.
-          token: ${{ secrets.UPSTREAM_BUMP_PAT || github.token }}
           branch: upstream/fiestaboard-${{ steps.versions.outputs.latest_upstream }}
           base: main
           title: "feat: bump upstream FiestaBoard to ${{ steps.versions.outputs.latest_upstream }}"
@@ -136,8 +121,8 @@ jobs:
             `BUILD_FROM` default, `fiestaboard/config.yaml`'s `version:`, and prepends
             a `CHANGELOG.md` entry.
 
-            Auto-merge is enabled when `UPSTREAM_BUMP_PAT` is configured — if CI
-            passes, this merges and `Builder` publishes
+            This PR is squash-merged immediately by the same workflow job,
+            after which `Builder` publishes
             `fiestaboard/fiestaboard-ha-app:${{ steps.versions.outputs.new_addon_version }}`.
 
             Upstream release notes:
@@ -150,13 +135,12 @@ jobs:
             dependencies
             upstream
 
-      - name: Enable auto-merge
+      - name: Merge PR
         if: |
           steps.versions.outputs.needs_bump == 'true' &&
-          steps.pr.outputs.pull-request-number &&
-          steps.pat.outputs.present == 'true'
+          steps.pr.outputs.pull-request-number
         env:
-          GH_TOKEN: ${{ secrets.UPSTREAM_BUMP_PAT }}
+          GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ steps.pr.outputs.pull-request-number }}
         run: |
-          gh pr merge --auto --squash "${PR_NUMBER}"
+          gh pr merge --squash --delete-branch "${PR_NUMBER}"
