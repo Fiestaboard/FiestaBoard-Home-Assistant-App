@@ -4,6 +4,25 @@ All notable changes to the FiestaBoard Home Assistant App will be documented her
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 7.0.2-ha.1 — 2026-06-07
+
+### Fixed
+
+- Bumped upstream FiestaBoard from **7.0.1 → 7.0.2** to pick up
+  [Fiestaboard/FiestaBoard#923](https://github.com/Fiestaboard/FiestaBoard/pull/923),
+  which rewrites the React Router v7 SPA's `__reactRouterContext.basename`
+  literal in the served HTML when the request comes via HA Ingress.
+- After the SPA migration in 7.0.0, the existing nginx `sub_filter` set
+  covered every asset URL but missed the inline hydration script that
+  Vite emits with `"basename":"/"` baked in. `HydratedRouter` strips
+  `basename` from `location.pathname` before route matching, so under
+  HA Ingress every page rendered the SPA's 404 boundary instead of
+  the app. The new `sub_filter` line rewrites the literal so React
+  Router strips the Ingress prefix and matches the bare routes.
+- No add-on-side changes — the `FIESTABOARD_INGRESS_PATH_REWRITE=true`
+  export wired in 6.16.1-ha.1 already activates the snippet that
+  upstream extended.
+
 ## 7.0.1-ha.1 — 2026-06-07
 
 ### Changed
