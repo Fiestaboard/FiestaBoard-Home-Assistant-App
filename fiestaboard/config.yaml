@@ -1,6 +1,6 @@
 # https://developers.home-assistant.io/docs/apps/configuration#app-configuration
 name: FiestaBoard
-version: "6.17.1-ha.1"
+version: "6.17.2-ha.1"
 slug: fiestaboard
 description: Open-source self-hosted platform for controlling Vestaboard split-flap displays
 url: "https://github.com/Fiestaboard/FiestaBoard-Home-Assistant-App/tree/main/fiestaboard"
@@ -24,15 +24,14 @@ startup: services
 
 # Sidebar / Ingress integration.
 #
-# Restored in 6.16.3-ha.1 after Fiestaboard/FiestaBoard#915 landed. That PR
-# injects a runtime URL-patching script when the request comes via HA
-# Ingress (detected from `X-Ingress-Path`). The script patches Next.js's
-# client-runtime URL construction (font preloads via `ReactDOM.preload`,
-# lazy chunks, fetch, XHR) so dynamic asset requests pick up the Ingress
-# prefix that Next.js's build-time-static `assetPrefix` would otherwise
-# leave bare. Earlier 6.16.x-ha.N releases turned Ingress off because
-# without that runtime patch the sidebar iframe rendered with broken
-# typography and missing lazy assets.
+# Upstream 6.17.2 (Fiestaboard/FiestaBoard#919) replaces Next.js with a
+# Vite-built React Router v7 SPA. Every asset URL is a string literal in
+# the build output, so HA Ingress prefixing is a single nginx
+# `sub_filter` pass over HTML/JS/CSS — no client-side prototype patches
+# of `HTMLLinkElement.href` / `setAttribute` / fetch / XHR. The four-fix
+# chain we shipped through 6.16.1-ha.1 → 6.17.1-ha.1 collapses to the
+# same `FIESTABOARD_INGRESS_PATH_REWRITE=true` toggle pointing at a
+# much simpler nginx-only path.
 ingress: true
 ingress_port: 3000
 panel_icon: mdi:billboard

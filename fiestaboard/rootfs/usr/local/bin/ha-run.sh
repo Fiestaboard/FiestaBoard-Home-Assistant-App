@@ -77,17 +77,16 @@ apply_options() {
     #     literally -- shellcheck SC2089/SC2090 are false positives.
     #
     #   FIESTABOARD_INGRESS_PATH_REWRITE=true
-    #     Activates upstream's `location /` snippet. The snippet does two
-    #     things: it `sub_filter`-rewrites `/_next/` and `/api/` paths in
-    #     the HTML and CSS response bodies to prefix `$http_x_ingress_path`
-    #     (Fiestaboard/FiestaBoard#913, #914), AND injects a runtime
-    #     URL-patching `<script>` as the first child of `<head>` that
-    #     patches Next.js's client-runtime URL construction
-    #     (`HTMLLinkElement.href` setter, `setAttribute`, `fetch`, XHR) so
-    #     `ReactDOM.preload` calls during hydration honor the prefix too
-    #     (Fiestaboard/FiestaBoard#915). Without #915 the initial wave
-    #     loaded but font preloads emitted by `next/font` post-hydration
-    #     stayed bare and broke typography.
+    #     Activates upstream's nginx snippet that `sub_filter`-rewrites
+    #     absolute `/assets/`, `/sw.js`, `/registerSW.js`, `/api/`,
+    #     `/icons/`, `/manifest.json`, `/favicon.ico` references in HTML,
+    #     JS, and CSS responses to prefix `$http_x_ingress_path`.
+    #     Post-6.17.2 (Fiestaboard/FiestaBoard#919) the upstream UI is a
+    #     Vite-built React Router v7 SPA; every asset URL is a string
+    #     literal in the build output, so this single pass covers the
+    #     surface area that previously required runtime patches of
+    #     `HTMLLinkElement.href` / `setAttribute` / fetch / XHR for the
+    #     Next.js client (`ReactDOM.preload`, lazy chunks).
     #
     # All three are always-on for HA installs because the add-on is *only*
     # ever reached behind Ingress (the LAN port stays open as a fallback

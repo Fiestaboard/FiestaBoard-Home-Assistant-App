@@ -4,6 +4,49 @@ All notable changes to the FiestaBoard Home Assistant App will be documented her
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 6.17.2-ha.1 — 2026-06-07
+
+### Changed
+
+- Bumped upstream FiestaBoard from **6.17.1 → 6.17.2** to pick up
+  [Fiestaboard/FiestaBoard#919](https://github.com/Fiestaboard/FiestaBoard/pull/919),
+  which replaces Next.js with a Vite-built **React Router v7** SPA.
+  Every asset URL (HTML `<link>`/`<script>` srcs, ES dynamic-`import()`
+  chunk paths, CSS `url()` references) is now a string literal in the
+  build output, so HA Ingress prefixing is a single nginx `sub_filter`
+  pass over HTML / JS / CSS responses for `/assets/`, `/sw.js`,
+  `/registerSW.js`, `/api/`, `/icons/`, `/manifest.json`, `/favicon.ico`.
+- **The Ingress URL-prefix bug is properly fixed.** The four-PR chain
+  we threaded through 6.16.1-ha.1 → 6.17.1-ha.1
+  (#913 HTML sub_filter, #914 CSS sub_filter, #915 runtime URL-patching
+  `<script>`, #918 patch-narrowed-to-`link.href`) was a moving target
+  because Next.js's React-19-internal `ReactDOM.preload()` constructed
+  asset URLs *after* hydration that no proxy-level rewrite or prototype
+  patch could safely intercept without disturbing React internals. With
+  the SPA migration there is no React-internal post-hydration URL
+  construction to chase: `vite-plugin-pwa` replaces `next-pwa`, all
+  asset references are emitted at build time, and the rewrite is
+  exhaustive. The runtime `<script>` injection (#915/#918) is gone.
+- **Sidebar Ingress stays on**, exactly as it was in 6.17.1-ha.1. The
+  add-on's three exports (`FIESTABOARD_X_FRAME_OPTIONS=OFF`,
+  `FIESTABOARD_FRAME_ANCESTORS='self'`,
+  `FIESTABOARD_INGRESS_PATH_REWRITE=true`) are unchanged — same env
+  variables, simpler implementation behind them. No `ha-run.sh` logic
+  changes (only stale-comment refreshes).
+- One-time service-worker cleanup: the upstream SPA's
+  `entry.client.tsx` ships a kill-switch that unregisters pre-cutover
+  `next-pwa` service workers and clears their caches on first boot
+  post-cutover, then reloads. Users upgrading from any prior `-ha.N`
+  will see one extra reload on the first sidebar open; subsequent
+  boots are clean (no stale `/_next/*` cache).
+
+### Image size
+
+- Upstream dropped the Node 26 runtime tier (production now serves
+  static files via nginx instead of running Next.js's Node server
+  alongside it). The base image shrinks by ~150 MB and supervisord
+  manages two processes (api + nginx) instead of three.
+
 ## 6.17.1-ha.1 — 2026-06-07
 
 ### Changed
