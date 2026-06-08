@@ -88,9 +88,9 @@ jobs:
             dependencies
             upstream
 
-      - name: Enable auto-merge
+      - name: Merge PR
         if: steps.versions.outputs.needs_bump == 'true' && steps.cpr.outputs.pull-request-number != ''
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ steps.cpr.outputs.pull-request-number }}
-        run: gh pr merge --auto --squash --delete-branch "$PR"
+        run: gh pr merge --squash --delete-branch "$PR"
