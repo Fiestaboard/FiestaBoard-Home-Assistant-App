@@ -77,17 +77,15 @@ apply_options() {
     #     literally -- shellcheck SC2089/SC2090 are false positives.
     #
     #   FIESTABOARD_INGRESS_PATH_REWRITE=true
-    #     Activates upstream's `location /` snippet. The snippet does two
-    #     things: it `sub_filter`-rewrites `/_next/` and `/api/` paths in
-    #     the HTML and CSS response bodies to prefix `$http_x_ingress_path`
-    #     (Fiestaboard/FiestaBoard#913, #914), AND injects a runtime
-    #     URL-patching `<script>` as the first child of `<head>` that
-    #     patches Next.js's client-runtime URL construction
-    #     (`HTMLLinkElement.href` setter, `setAttribute`, `fetch`, XHR) so
-    #     `ReactDOM.preload` calls during hydration honor the prefix too
-    #     (Fiestaboard/FiestaBoard#915). Without #915 the initial wave
-    #     loaded but font preloads emitted by `next/font` post-hydration
-    #     stayed bare and broke typography.
+    #     Activates upstream's nginx `sub_filter` snippet that prepends
+    #     `$http_x_ingress_path` to absolute references to `/assets/`,
+    #     `/sw.js`, `/registerSW.js`, `/api/`, `/icons/`, `/manifest.json`,
+    #     and `/favicon.ico` across HTML/JS/CSS response bodies. Since
+    #     upstream 7.0.0 (Fiestaboard/FiestaBoard#919) migrated the web
+    #     UI from Next.js to a React Router v7 static SPA, every asset
+    #     URL is a literal string in the build output, so this single
+    #     `sub_filter` pass is exhaustive — no runtime URL-patching
+    #     script and no React-internal URLs to chase.
     #
     # All three are always-on for HA installs because the add-on is *only*
     # ever reached behind Ingress (the LAN port stays open as a fallback
