@@ -73,6 +73,28 @@ jobs:
             echo "present=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Close stale bump PRs
+        # Older bump PRs rot once main moves — `config.yaml` and CHANGELOG.md
+        # conflict, auto-merge stalls. Close them before opening the new one
+        # so only the current target branch is live.
+        if: steps.versions.outputs.needs_bump == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEEP_BRANCH: upstream/fiestaboard-${{ steps.versions.outputs.latest_upstream }}
+        run: |
+          set -euo pipefail
+          gh pr list \
+            --label upstream \
+            --state open \
+            --json number,headRefName \
+            --jq ".[] | select(.headRefName | startswith(\"upstream/fiestaboard-\")) | select(.headRefName != \"${KEEP_BRANCH}\") | .number" \
+          | while read -r pr; do
+              [ -z "${pr}" ] && continue
+              echo "Closing stale bump PR #${pr}"
+              gh pr close "${pr}" --delete-branch \
+                --comment "Superseded by bump to ${{ steps.versions.outputs.latest_upstream }}."
+            done
+
       - name: Bump pinned files
         if: steps.versions.outputs.needs_bump == 'true'
         env:
