@@ -4,6 +4,39 @@ All notable changes to the FiestaBoard Home Assistant App will be documented her
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 7.0.1-ha.1 — 2026-06-07
+
+### Changed
+
+- Bumped upstream FiestaBoard from **6.17.1 → 7.0.1**, skipping the
+  intermediate 6.17.2 release. The major-version jump is driven by
+  upstream's framework swap:
+  - **6.17.2** ([Fiestaboard/FiestaBoard#919](https://github.com/Fiestaboard/FiestaBoard/pull/919))
+    replaced Next.js 16 with a **React Router v7 static SPA** built by
+    Vite. The Node runtime is gone from production; nginx serves
+    `/app/web/build/client/` directly. Because every asset URL is now
+    a literal string in the build output, HA Ingress support is a
+    single nginx `sub_filter` set over HTML/JS/CSS that prepends
+    `$http_x_ingress_path` to `/assets/`, `/sw.js`, `/api/`, `/icons/`,
+    `/manifest.json`, `/favicon.ico`. The 6.16.x → 6.17.1 series of
+    runtime URL-patching scripts (`HTMLLinkElement.href`, `setAttribute`,
+    `fetch`, XHR) is gone — they existed only to chase Next.js's
+    React-internal URL construction, which no longer happens.
+  - **7.0.0** ([#920](https://github.com/Fiestaboard/FiestaBoard/pull/920))
+    is a no-code trigger commit that retroactively cuts the SPA
+    rewrite as a major version.
+  - **7.0.1** ([#922](https://github.com/Fiestaboard/FiestaBoard/pull/922))
+    fixes a page-transition flicker on first paint after route swap.
+- No add-on-side functional changes — the existing
+  `FIESTABOARD_INGRESS_PATH_REWRITE=true`, `FIESTABOARD_X_FRAME_OPTIONS=OFF`,
+  and `FIESTABOARD_FRAME_ANCESTORS='self'` exports in `ha-run.sh` are
+  still honored by upstream 7.0.1; the `location /` snippet they
+  activate is just simpler now.
+- Refreshed the Ingress comment block in `config.yaml` and the
+  `FIESTABOARD_INGRESS_PATH_REWRITE` docstring in
+  `rootfs/usr/local/bin/ha-run.sh` so they describe the SPA
+  `sub_filter` rather than the retired Next.js runtime-patch script.
+
 ## 6.17.1-ha.1 — 2026-06-07
 
 ### Changed
