@@ -75,12 +75,12 @@ jobs:
 
       - name: Close stale bump PRs
         # Older bump PRs rot once main moves — `config.yaml` and CHANGELOG.md
-        # conflict, auto-merge stalls. Close them before opening the new one
-        # so only the current target branch is live.
-        if: steps.versions.outputs.needs_bump == 'true'
+        # conflict, auto-merge stalls. Keep only the branch we're about to
+        # (re)open; when no bump is needed, main is already at latest so any
+        # open `upstream/fiestaboard-*` PR is moot — close them all.
         env:
           GH_TOKEN: ${{ github.token }}
-          KEEP_BRANCH: upstream/fiestaboard-${{ steps.versions.outputs.latest_upstream }}
+          KEEP_BRANCH: ${{ steps.versions.outputs.needs_bump == 'true' && format('upstream/fiestaboard-{0}', steps.versions.outputs.latest_upstream) || '' }}
         run: |
           set -euo pipefail
           gh pr list \
@@ -92,7 +92,7 @@ jobs:
               [ -z "${pr}" ] && continue
               echo "Closing stale bump PR #${pr}"
               gh pr close "${pr}" --delete-branch \
-                --comment "Superseded by bump to ${{ steps.versions.outputs.latest_upstream }}."
+                --comment "Superseded — main is at or past this version."
             done
 
       - name: Bump pinned files
