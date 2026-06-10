@@ -11,6 +11,15 @@ name: Upstream bump
 # `main` has no required reviews or status checks, so the merge lands
 # immediately. CI (`lint`/`test`) runs on the post-merge `push`, not on
 # the PR — broken bumps will turn `main` red rather than being blocked.
+#
+# Auth: PR creation and the squash-merge use `BUMP_PAT` (a fine-grained
+# PAT scoped to this repo, Contents+PRs: write) rather than the default
+# `GITHUB_TOKEN`. GitHub Actions deliberately suppresses workflow runs
+# for events whose push was made by `GITHUB_TOKEN`; using a PAT makes
+# the merge push look like a real user so the `Builder` workflow fires
+# and publishes the new image. If `BUMP_PAT` is missing/expired the
+# workflow fails fast at the merge step rather than silently regressing
+# to the no-Builder-run state that left 7.0.7-ha.1 unpublished.
 on:
   schedule:
     # Hourly. Idempotent: only acts when upstream actually changed.
@@ -67,7 +76,7 @@ jobs:
         # so only the current target branch is live.
         if: steps.versions.outputs.needs_bump == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.BUMP_PAT }}
           KEEP_BRANCH: upstream/fiestaboard-${{ steps.versions.outputs.latest_upstream }}
         run: |
           set -euo pipefail
@@ -109,6 +118,9 @@ jobs:
         id: pr
         uses: peter-evans/create-pull-request@v8
         with:
+          # PAT (not GITHUB_TOKEN) so the branch push that lands the
+          # merge commit triggers `Builder`. See header comment.
+          token: ${{ secrets.BUMP_PAT }}
           branch: upstream/fiestaboard-${{ steps.versions.outputs.latest_upstream }}
           base: main
           title: "feat: bump upstream FiestaBoard to ${{ steps.versions.outputs.latest_upstream }}"
@@ -140,7 +152,9 @@ jobs:
           steps.versions.outputs.needs_bump == 'true' &&
           steps.pr.outputs.pull-request-number
         env:
-          GH_TOKEN: ${{ github.token }}
+          # PAT (not GITHUB_TOKEN) so the merge push fires `Builder`.
+          # See header comment.
+          GH_TOKEN: ${{ secrets.BUMP_PAT }}
           PR_NUMBER: ${{ steps.pr.outputs.pull-request-number }}
         run: |
           gh pr merge --squash --delete-branch "${PR_NUMBER}"
