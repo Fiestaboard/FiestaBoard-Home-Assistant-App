@@ -78,7 +78,7 @@ jobs:
         # the build container, so we forward DOCKER_USER/DOCKER_PASSWORD
         # for the publish path. (The docker/login-action above is still
         # useful for any same-host pulls.)
-        uses: home-assistant/builder@2026.03.2
+        uses: home-assistant/builder@2026.06.0
         with:
           args: >-
             --${{ matrix.arch }}
