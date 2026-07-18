@@ -80,6 +80,19 @@ JSON
     [ -z "${BOARD_HOST:-}" ]
 }
 
+# Regression test for #48: config.yaml's fiestaboard_external_url schema
+# used to be `url?`, which the HA Supervisor rejects for the empty-string
+# default ("expected a URL") even though the field is optional. The schema
+# is now `str?`, and this test pins that an empty value is still safely
+# treated as "unset" downstream rather than exported as a blank env var.
+@test "apply_options leaves FIESTABOARD_EXTERNAL_URL unset when empty" {
+    cat > "${HA_RUN_OPTIONS_FILE}" <<'JSON'
+{ "fiestaboard_external_url": "" }
+JSON
+    apply_options
+    [ -z "${FIESTABOARD_EXTERNAL_URL:-}" ]
+}
+
 @test "apply_options handles missing options file gracefully" {
     rm -f "${HA_RUN_OPTIONS_FILE}"
     run apply_options
