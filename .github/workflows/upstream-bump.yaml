@@ -135,7 +135,7 @@ jobs:
 
             This PR is squash-merged immediately by the same workflow job,
             after which `Builder` publishes
-            `fiestaboard/fiestaboard-ha-app-{arch}:${{ steps.versions.outputs.new_addon_version }}`.
+            `fiestaboard/fiestaboard-ha-app:${{ steps.versions.outputs.new_addon_version }}`.
 
             Upstream release notes:
             https://github.com/Fiestaboard/FiestaBoard/releases/tag/v${{ steps.versions.outputs.latest_upstream }}

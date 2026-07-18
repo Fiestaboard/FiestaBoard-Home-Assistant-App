@@ -13,14 +13,10 @@ arch:
 # script just exports HA options as env vars and execs the upstream entrypoint.
 init: false
 
-# Per-architecture images published on Docker Hub. The {arch} placeholder is
-# REQUIRED: the Builder workflow builds each arch in a separate job, and
-# without {arch} every job pushed to the same tag, so the last push (aarch64)
-# overwrote the amd64 image — amd64 users then pulled an arm64 image and hit
-# "exec format error" (issue #46). Build args in build.yaml pin the upstream
-# FiestaBoard base image per architecture. CI's Builder workflow publishes
-# new versions on release.
-image: "fiestaboard/fiestaboard-ha-app-{arch}"
+# Multi-arch image published on Docker Hub. Build args in build.yaml pin the
+# upstream FiestaBoard base image per architecture. CI's Builder workflow
+# publishes new versions on release.
+image: "fiestaboard/fiestaboard-ha-app"
 
 # Boot behaviour
 boot: auto
