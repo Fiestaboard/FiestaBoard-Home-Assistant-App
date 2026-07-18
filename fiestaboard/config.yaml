@@ -1,6 +1,6 @@
 # https://developers.home-assistant.io/docs/apps/configuration#app-configuration
 name: FiestaBoard
-version: "7.11.14-ha.1"
+version: "7.11.14-ha.2"
 slug: fiestaboard
 description: Open-source self-hosted platform for controlling Vestaboard split-flap displays
 url: "https://github.com/Fiestaboard/FiestaBoard-Home-Assistant-App/tree/main/fiestaboard"
@@ -13,10 +13,14 @@ arch:
 # script just exports HA options as env vars and execs the upstream entrypoint.
 init: false
 
-# Multi-arch image published on Docker Hub. Build args in build.yaml pin the
-# upstream FiestaBoard base image per architecture. CI's Builder workflow
-# publishes new versions on release.
-image: "fiestaboard/fiestaboard-ha-app"
+# Per-architecture images published on Docker Hub. The {arch} placeholder is
+# REQUIRED: the Builder workflow builds each arch in a separate job, and
+# without {arch} every job pushed to the same tag, so the last push (aarch64)
+# overwrote the amd64 image — amd64 users then pulled an arm64 image and hit
+# "exec format error" (issue #46). Build args in build.yaml pin the upstream
+# FiestaBoard base image per architecture. CI's Builder workflow publishes
+# new versions on release.
+image: "fiestaboard/fiestaboard-ha-app-{arch}"
 
 # Boot behaviour
 boot: auto

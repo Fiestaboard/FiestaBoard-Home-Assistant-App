@@ -4,6 +4,17 @@ All notable changes to the FiestaBoard Home Assistant App will be documented her
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 7.11.14-ha.2 — 2026-07-18
+
+### Fixed
+
+- **"exec format error" on amd64 installs** (#46). The add-on's `image:` name
+  lacked the `{arch}` placeholder, so the aarch64 and amd64 CI jobs pushed to
+  the same Docker Hub tag and the aarch64 push overwrote the amd64 image.
+  amd64 (x86-64) machines then pulled an arm64 image and the container failed
+  to start with `exec /usr/local/bin/ha-run.sh: exec format error`. Images are
+  now published per architecture (`fiestaboard/fiestaboard-ha-app-{arch}`).
+
 ## 7.11.14-ha.1 — 2026-07-18
 
 ### Changed
