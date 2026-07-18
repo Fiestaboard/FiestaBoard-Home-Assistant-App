@@ -13,9 +13,11 @@ arch:
 # script just exports HA options as env vars and execs the upstream entrypoint.
 init: false
 
-# Multi-arch image published on Docker Hub. Build args in build.yaml pin the
-# upstream FiestaBoard base image per architecture. CI's Builder workflow
-# publishes new versions on release.
+# Multi-arch image published on Docker Hub. CI's Builder workflow builds each
+# arch (from the Dockerfile's pinned BUILD_FROM base), pushes per-arch images
+# (fiestaboard/<arch>-fiestaboard-ha-app), and combines them into a single
+# multi-arch manifest under this name — so no `{arch}` placeholder is needed;
+# Docker resolves the right platform from the manifest.
 image: "fiestaboard/fiestaboard-ha-app"
 
 # Boot behaviour
