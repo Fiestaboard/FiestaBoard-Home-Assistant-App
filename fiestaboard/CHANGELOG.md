@@ -4,6 +4,24 @@ All notable changes to the FiestaBoard Home Assistant App will be documented her
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 7.11.14-ha.2 — 2026-07-18
+
+### Fixed
+
+- **"exec format error" on amd64 installs** (#46). CI published only an arm64
+  image under every Docker Hub tag: the aarch64 and amd64 build jobs pushed to
+  the same tag and the last push (aarch64) overwrote the amd64 image, so
+  amd64 (x86-64) machines pulled an arm64 image and the container failed to
+  start with `exec /usr/local/bin/ha-run.sh: exec format error`. The Builder
+  workflow now publishes a true multi-arch manifest (#50), so each machine
+  pulls the image for its own architecture.
+- **"Failed to save: expected a URL" when saving the configuration** (#48).
+  `fiestaboard_external_url` was declared `url?` in the schema, but the
+  Supervisor rejects an empty string for `url` fields even when the key is
+  optional — and the options UI always submits every field, so any save with
+  a blank external URL failed. The field is now `str?`; leaving it blank
+  simply omits the "Visit" link.
+
 ## 7.11.14-ha.1 — 2026-07-18
 
 ### Changed
