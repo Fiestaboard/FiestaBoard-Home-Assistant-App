@@ -106,7 +106,14 @@ schema:
   weather_location: str?
   timezone: str?
   mqtt_enabled: bool
-  fiestaboard_external_url: url?
+  # Declared as str? (not url?) because the HA Supervisor's `url?` schema
+  # type still requires a well-formed URL when the key is present — the `?`
+  # only makes the key itself optional, not an empty value. The add-on
+  # options UI always submits every field, so it POSTs "" for a blank field
+  # and the Supervisor rejects the whole payload with "expected a URL"
+  # (issue #48). str? accepts the empty-string default; ha-run.sh's
+  # export_if_set already treats an empty value as "unset".
+  fiestaboard_external_url: str?
   fiestaboard_auth_enabled: bool
   # 0 means use upstream default (604800 = 7 days). Set to a positive int to override.
   fiestaboard_session_ttl_seconds: int(0,)?

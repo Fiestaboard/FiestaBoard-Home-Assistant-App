@@ -45,7 +45,7 @@ intentionally only surfaces the bootstrap-critical fields.
 | `weather_location` | string | Free-text location (e.g. city name). |
 | `timezone` | string | IANA timezone (e.g. `America/Los_Angeles`). |
 | `mqtt_enabled` | bool | Enable MQTT integration (auto-wired to HA's broker if installed). |
-| `fiestaboard_external_url` | url | URL shown as the "Visit" link on FiestaBoard's MQTT device page in HA. |
+| `fiestaboard_external_url` | string | URL shown as the "Visit" link on FiestaBoard's MQTT device page in HA. Leave blank to omit the link. |
 | `fiestaboard_auth_enabled` | bool | FiestaBoard 6.0+ in-app login. Defaults **off** because HA Ingress already authenticates web access. Turn this on if you publish the LAN port (`4420`) to the internet. |
 | `fiestaboard_session_ttl_seconds` | int | Session lifetime when `fiestaboard_auth_enabled` is on. `0` means use upstream's default (7 days). |
 | `fiestaboard_mcp_token` | password | Pre-shared bearer token for FiestaBoard's `/mcp` endpoint (Claude Desktop / Claude Code). Only relevant when in-app auth is on. |
