@@ -8,7 +8,13 @@
 # Then it overrides CMD so the Home Assistant Supervisor launches our shim
 # instead of supervisord directly. The shim exec's into FiestaBoard's
 # upstream /app/entrypoint.sh after exporting env vars.
-ARG BUILD_FROM=fiestaboard/fiestaboard:6.17.1
+#
+# The default below is the SINGLE SOURCE OF TRUTH for the pinned upstream
+# FiestaBoard release (build.yaml is gone; the HA builder deprecated it).
+# The Upstream bump workflow (.github/workflows/upstream-bump.yaml) greps and
+# seds this line, so keep it in the `ARG BUILD_FROM=fiestaboard/fiestaboard:X`
+# form. CI does not override BUILD_FROM; both arches use this multi-arch base.
+ARG BUILD_FROM=fiestaboard/fiestaboard:7.11.14
 # hadolint ignore=DL3006
 FROM ${BUILD_FROM}
 
@@ -27,24 +33,27 @@ COPY rootfs/ /
 
 RUN chmod +x /usr/local/bin/ha-run.sh
 
-# Build-time metadata. The CI build action injects io.hass.* labels at push time.
+# Build-time metadata. CI's build-image action (builder.yaml) always passes
+# the BUILD_ARCH and BUILD_VERSION build args and injects the dynamic
+# io.hass.arch / io.hass.version / org.opencontainers.image.{created,version,
+# source} labels at build time; BUILD_REF is passed explicitly by builder.yaml.
+# The static labels (formerly split between build.yaml and this file) live here.
 ARG BUILD_ARCH
-ARG BUILD_DATE
-ARG BUILD_DESCRIPTION
-ARG BUILD_NAME
 ARG BUILD_REF
-ARG BUILD_REPOSITORY
 ARG BUILD_VERSION
 
 LABEL \
+    io.hass.name="FiestaBoard" \
+    io.hass.description="Run FiestaBoard as a Home Assistant Supervisor add-on" \
+    io.hass.type="addon" \
+    io.hass.url="https://github.com/Fiestaboard/FiestaBoard-Home-Assistant-App/tree/main/fiestaboard" \
     org.opencontainers.image.title="Home Assistant App: FiestaBoard" \
     org.opencontainers.image.description="Run FiestaBoard as a Home Assistant Supervisor add-on" \
     org.opencontainers.image.source="https://github.com/Fiestaboard/FiestaBoard-Home-Assistant-App" \
     org.opencontainers.image.licenses="MIT" \
     org.opencontainers.image.vendor="FiestaBoard" \
     org.opencontainers.image.revision="${BUILD_REF}" \
-    org.opencontainers.image.version="${BUILD_VERSION}" \
-    org.opencontainers.image.created="${BUILD_DATE}"
+    org.opencontainers.image.version="${BUILD_VERSION}"
 
 # Our shim must run BEFORE the upstream /app/entrypoint.sh so it can:
 #   1. Translate /data/options.json into the env vars upstream consumes.

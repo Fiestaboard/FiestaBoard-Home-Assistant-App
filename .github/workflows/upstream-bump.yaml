@@ -4,9 +4,9 @@ name: Upstream bump
 # Polls the upstream FiestaBoard repo for new releases, opens a PR
 # bumping the pinned base image plus the add-on version (mirroring
 # upstream as `<upstream>-ha.N`), and squash-merges it in the same job.
-# We can't use Dependabot's docker watcher because the real per-arch
-# pin lives in fiestaboard/build.yaml (a Home Assistant builder spec)
-# which Dependabot doesn't parse.
+# We can't use Dependabot's docker watcher because the pin lives in
+# fiestaboard/Dockerfile's `ARG BUILD_FROM` default (the FROM line is
+# `FROM ${BUILD_FROM}`), which Dependabot doesn't parse.
 #
 # `main` has no required reviews or status checks, so the merge lands
 # immediately. CI (`lint`/`test`) runs on the post-merge `push`, not on
@@ -48,7 +48,7 @@ jobs:
           FORCE_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          current_upstream="$(grep -E '^\s*amd64:\s*fiestaboard/fiestaboard:' fiestaboard/build.yaml \
+          current_upstream="$(grep -E '^ARG BUILD_FROM=fiestaboard/fiestaboard:' fiestaboard/Dockerfile \
             | sed -E 's/.*fiestaboard:([^ ]+).*/\1/')"
           if [ -n "${FORCE_VERSION}" ]; then
             latest_upstream="${FORCE_VERSION}"
@@ -101,7 +101,7 @@ jobs:
         run: |
           set -euo pipefail
           sed -i "s|fiestaboard/fiestaboard:${CURRENT}|fiestaboard/fiestaboard:${LATEST}|g" \
-            fiestaboard/build.yaml fiestaboard/Dockerfile
+            fiestaboard/Dockerfile
           sed -i -E "s|^version:.*|version: \"${NEW_ADDON_VERSION}\"|" fiestaboard/config.yaml
           today="$(date -u +%Y-%m-%d)"
           tmp="$(mktemp)"
@@ -129,8 +129,8 @@ jobs:
           body: |
             Automated hourly bump from the **Upstream bump** workflow.
 
-            Updates `fiestaboard/build.yaml` (both arches), `fiestaboard/Dockerfile`'s
-            `BUILD_FROM` default, `fiestaboard/config.yaml`'s `version:`, and prepends
+            Updates `fiestaboard/Dockerfile`'s `BUILD_FROM` default (the single
+            upstream pin), `fiestaboard/config.yaml`'s `version:`, and prepends
             a `CHANGELOG.md` entry.
 
             This PR is squash-merged immediately by the same workflow job,

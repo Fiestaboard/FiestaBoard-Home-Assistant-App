@@ -10,5 +10,6 @@ updates:
       - github-actions
 
   # Upstream FiestaBoard bumps are handled by .github/workflows/upstream-bump.yaml.
-  # The real per-arch pin lives in fiestaboard/build.yaml (a Home Assistant
-  # builder spec), which Dependabot's docker ecosystem does not parse.
+  # The pin lives in fiestaboard/Dockerfile's `ARG BUILD_FROM` default (the
+  # FROM line is `FROM ${BUILD_FROM}`), which Dependabot's docker ecosystem
+  # does not parse.

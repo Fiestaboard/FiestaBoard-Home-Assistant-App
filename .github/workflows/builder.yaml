@@ -1,6 +1,25 @@
 ---
 name: Builder
 
+# Builds and publishes the add-on image using the composable actions that
+# replaced the deprecated `home-assistant/builder` action
+# (https://github.com/home-assistant/builder):
+#   - prepare-multi-arch-matrix: arch -> native runner + per-arch image name
+#   - build-image: buildx build (and optional push) of one arch
+#   - publish-multi-arch-manifest: combine per-arch images into one manifest
+#
+# Per-arch images are pushed to docker.io/fiestaboard/<arch>-fiestaboard-ha-app
+# (the actions hardcode the `<arch>-<image-name>` convention) and then combined
+# into a single multi-arch manifest at docker.io/fiestaboard/fiestaboard-ha-app.
+# config.yaml's `image:` points at the manifest name WITHOUT an `{arch}`
+# placeholder: every arch pulls the same name and Docker resolves the right
+# platform from the manifest, which is what fixes the "both arches clobber one
+# tag" failure mode (issue #46) for good.
+#
+# The upstream base image pin lives in fiestaboard/Dockerfile's
+# `ARG BUILD_FROM` default (build.yaml is gone — it was deprecated by the
+# builder); the Upstream bump workflow seds that line.
+
 on:
   push:
     branches: [main]
@@ -18,15 +37,21 @@ on:
 
 permissions:
   contents: read
-  packages: write
+
+env:
+  ARCHITECTURES: '["amd64", "aarch64"]'
+  IMAGE_NAME: fiestaboard-ha-app
+  REGISTRY: docker.io
+  REGISTRY_PREFIX: docker.io/fiestaboard
 
 jobs:
   init:
     name: Initialize build
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.info.outputs.version }}
+      version: ${{ steps.version.outputs.version }}
       publish: ${{ steps.publish.outputs.publish }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v6
 
@@ -35,6 +60,14 @@ jobs:
         uses: home-assistant/actions/helpers/info@master
         with:
           path: ./fiestaboard
+
+      - name: Resolve version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          CONFIG_VERSION: ${{ steps.info.outputs.version }}
+        run: |
+          echo "version=${INPUT_VERSION:-${CONFIG_VERSION}}" >> "$GITHUB_OUTPUT"
 
       - name: Decide whether to publish
         id: publish
@@ -50,41 +83,64 @@ jobs:
             echo "publish=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Get build matrix
+        id: matrix
+        uses: home-assistant/builder/actions/prepare-multi-arch-matrix@2026.06.0
+        with:
+          architectures: ${{ env.ARCHITECTURES }}
+          image-name: ${{ env.IMAGE_NAME }}
+          registry-prefix: ${{ env.REGISTRY_PREFIX }}
+
   build:
-    name: Build ${{ matrix.arch }}
+    name: Build ${{ matrix.arch }} image
     needs: init
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      matrix:
-        arch: [aarch64, amd64]
+      matrix: ${{ fromJSON(needs.init.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v6
 
-      - name: Login to Docker Hub
-        if: needs.init.outputs.publish == 'true'
-        uses: docker/login-action@v4
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Build add-on (${{ matrix.arch }})
-        # The image name comes from config.yaml's `image:` field. We
-        # intentionally do NOT pass --image or --docker-hub here: the
-        # builder script's --image flag overrides the *unqualified* image
-        # part only, so passing "fiestaboard/fiestaboard-ha-app" caused
-        # it to construct fiestaboard/fiestaboard/fiestaboard-ha-app at
-        # push time. The builder also runs its own docker login inside
-        # the build container, so we forward DOCKER_USER/DOCKER_PASSWORD
-        # for the publish path. (The docker/login-action above is still
-        # useful for any same-host pulls.)
-        uses: home-assistant/builder@2026.03.2
+        # The action injects the BUILD_ARCH / BUILD_VERSION build args and the
+        # io.hass.arch / io.hass.version / org.opencontainers.image.* dynamic
+        # labels itself; BUILD_FROM defaults to the pinned upstream base in
+        # fiestaboard/Dockerfile, where the static io.hass.* labels also live.
+        # Cosign signing is disabled: we publish to Docker Hub (not GHCR) and
+        # neither the upstream base nor our previous images were signed.
+        uses: home-assistant/builder/actions/build-image@2026.06.0
         with:
-          args: >-
-            --${{ matrix.arch }}
-            --target /data/fiestaboard
-            --version "${{ needs.init.outputs.version }}"
-            ${{ needs.init.outputs.publish == 'true'
-                && format('--docker-user {0} --docker-password {1}',
-                          secrets.DOCKERHUB_USERNAME, secrets.DOCKERHUB_TOKEN)
-                || '--test' }}
+          arch: ${{ matrix.arch }}
+          build-args: |
+            BUILD_REF=${{ github.sha }}
+          container-registry: ${{ env.REGISTRY }}
+          container-registry-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          container-registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
+          context: ./fiestaboard
+          cosign: "false"
+          image: ${{ matrix.image }}
+          image-tags: |
+            ${{ needs.init.outputs.version }}
+            latest
+          push: ${{ needs.init.outputs.publish }}
+          version: ${{ needs.init.outputs.version }}
+
+  manifest:
+    name: Publish multi-arch manifest
+    if: needs.init.outputs.publish == 'true'
+    needs: [init, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish multi-arch manifest
+        uses: home-assistant/builder/actions/publish-multi-arch-manifest@2026.06.0
+        with:
+          architectures: ${{ env.ARCHITECTURES }}
+          container-registry: ${{ env.REGISTRY }}
+          container-registry-username: ${{ secrets.DOCKERHUB_USERNAME }}
+          container-registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
+          cosign: "false"
+          image-name: ${{ env.IMAGE_NAME }}
+          image-tags: |
+            ${{ needs.init.outputs.version }}
+            latest
+          registry-prefix: ${{ env.REGISTRY_PREFIX }}
