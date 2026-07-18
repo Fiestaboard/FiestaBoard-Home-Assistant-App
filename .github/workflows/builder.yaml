@@ -53,7 +53,7 @@ jobs:
       publish: ${{ steps.publish.outputs.publish }}
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Get add-on info
         id: info
@@ -99,7 +99,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.init.outputs.matrix) }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Build add-on (${{ matrix.arch }})
         # The action injects the BUILD_ARCH / BUILD_VERSION build args and the
