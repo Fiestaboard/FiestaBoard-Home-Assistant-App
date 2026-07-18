@@ -66,8 +66,14 @@ jobs:
         env:
           INPUT_VERSION: ${{ inputs.version }}
           CONFIG_VERSION: ${{ steps.info.outputs.version }}
+        # The info helper returns config.yaml's version with its YAML quotes
+        # intact (`"7.11.14-ha.2"`), which is an invalid image tag — strip
+        # any surrounding quotes before handing it to the build actions.
         run: |
-          echo "version=${INPUT_VERSION:-${CONFIG_VERSION}}" >> "$GITHUB_OUTPUT"
+          version="${INPUT_VERSION:-${CONFIG_VERSION}}"
+          version="${version#\"}"
+          version="${version%\"}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
 
       - name: Decide whether to publish
         id: publish
