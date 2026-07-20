@@ -4,6 +4,12 @@ All notable changes to the FiestaBoard Home Assistant App will be documented her
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 8.1.1-ha.1 — 2026-07-20
+
+### Changed
+
+- Bump upstream FiestaBoard **8.1.0 → 8.1.1**.
+
 ## 8.1.0-ha.1 — 2026-07-20
 
 ### Changed
