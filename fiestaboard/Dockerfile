@@ -14,7 +14,7 @@
 # The Upstream bump workflow (.github/workflows/upstream-bump.yaml) greps and
 # seds this line, so keep it in the `ARG BUILD_FROM=fiestaboard/fiestaboard:X`
 # form. CI does not override BUILD_FROM; both arches use this multi-arch base.
-ARG BUILD_FROM=fiestaboard/fiestaboard:8.2.3
+ARG BUILD_FROM=fiestaboard/fiestaboard:8.2.4
 # hadolint ignore=DL3006
 FROM ${BUILD_FROM}
 
