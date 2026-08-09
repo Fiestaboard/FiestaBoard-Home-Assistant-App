@@ -21,8 +21,10 @@ FROM ${BUILD_FROM}
 # HA Supervisor launches add-on containers as root; the upstream entrypoint
 # performs its own gosu root->appuser handoff. Switching back to root here is
 # intentional so our shim can manage symlinks under /app and write env files.
+# The numeric UID 0 is used instead of the name `root` so the id always resolves
+# regardless of the base image's /etc/passwd (hadolint DL3066).
 # hadolint ignore=DL3002
-USER root
+USER 0
 
 # hadolint ignore=DL3008,DL3015
 RUN apt-get update \
