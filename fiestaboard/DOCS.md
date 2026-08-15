@@ -167,5 +167,5 @@ update path is through HA's UI.
 ## Support
 
 - Issues: <https://github.com/Fiestaboard/FiestaBoard-Home-Assistant-App/issues>
-- Discord: <https://discord.gg/ujasGntNhQ>
+- Discord: <https://discord.gg/2GAqKnRF6h>
 - Docs: <https://fiestaboard.app>
