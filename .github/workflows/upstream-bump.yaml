@@ -18,19 +18,19 @@ name: Upstream bump
 # checks fail stays an open red PR instead of turning `main` red.
 #
 # Auth: PR creation and the merge use a GitHub App installation token
-# minted per run from the `claude` App (`CLAUDE_BOT_APP_ID` +
-# `CLAUDE_BOT_APP_PRIVATE_KEY`, same secret names the upstream repo uses)
-# rather than the default `GITHUB_TOKEN`. GitHub Actions deliberately
-# suppresses workflow runs for events whose push was made by
-# `GITHUB_TOKEN`; an App installation token is not subject to that
-# suppression, so the merge push fires the `Builder` workflow and
-# publishes the new image.
+# minted per run from the `fiestaboard-ci-bot` App (`CI_BOT_APP_ID` +
+# `CI_BOT_APP_PRIVATE_KEY`) rather than the default `GITHUB_TOKEN`.
+# GitHub Actions deliberately suppresses workflow runs for events whose
+# push was made by `GITHUB_TOKEN`; an App installation token is not
+# subject to that suppression, so the merge push fires the `Builder`
+# workflow and publishes the new image.
 #
-# Deliberately NOT the `fiestaboard-ci-bot` App: that one is a bypass
-# actor on the `PR policy` ruleset (`bypass_mode: always`), so bumps
-# running as it would skip the six required checks entirely and defeat
-# the gating below. The `claude` App is not a bypass actor, so `--auto`
-# waits on the checks as intended.
+# `fiestaboard-ci-bot` was removed from the `PR policy` ruleset's
+# `bypass_actors` on 2026-08-20 (it held `bypass_mode: always`). While it
+# could bypass, a bump PR was mergeable the instant it opened, so `--auto`
+# below would have squashed it immediately instead of waiting — silently
+# skipping the six required checks. Re-adding that bypass re-breaks the
+# gating; grant the App bypass on some other ruleset if it ever needs one.
 #
 # This replaced a fine-grained PAT (`BUMP_PAT`, now unused), which expired on
 # 2026-08-17 and hard-failed every hourly run with `Bad credentials`
@@ -65,8 +65,8 @@ jobs:
         id: bump_token
         uses: actions/create-github-app-token@v2
         with:
-          app-id: ${{ secrets.CLAUDE_BOT_APP_ID }}
-          private-key: ${{ secrets.CLAUDE_BOT_APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.CI_BOT_APP_ID }}
+          private-key: ${{ secrets.CI_BOT_APP_PRIVATE_KEY }}
 
       - name: Determine current and latest versions
         id: versions
