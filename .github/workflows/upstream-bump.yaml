@@ -3,23 +3,40 @@ name: Upstream bump
 
 # Polls the upstream FiestaBoard repo for new releases, opens a PR
 # bumping the pinned base image plus the add-on version (mirroring
-# upstream as `<upstream>-ha.N`), and squash-merges it in the same job.
+# upstream as `<upstream>-ha.N`), and queues it for auto-merge.
 # We can't use Dependabot's docker watcher because the pin lives in
 # fiestaboard/Dockerfile's `ARG BUILD_FROM` default (the FROM line is
 # `FROM ${BUILD_FROM}`), which Dependabot doesn't parse.
 #
-# `main` has no required reviews or status checks, so the merge lands
-# immediately. CI (`lint`/`test`) runs on the post-merge `push`, not on
-# the PR — broken bumps will turn `main` red rather than being blocked.
+# The `PR policy` ruleset on `main` requires six status checks
+# (yamllint, hadolint, shellcheck, HA config validation, Bats unit
+# tests, Image smoke test (amd64)), all of which run on `pull_request`.
+# A plain `gh pr merge` seconds after opening the PR is therefore
+# rejected with "the base branch policy prohibits the merge" — the
+# checks are still pending. The merge step uses `--auto` so GitHub
+# lands the squash once the checks pass, which also means a bump whose
+# checks fail stays an open red PR instead of turning `main` red.
 #
-# Auth: PR creation and the squash-merge use `BUMP_PAT` (a fine-grained
-# PAT scoped to this repo, Contents+PRs: write) rather than the default
-# `GITHUB_TOKEN`. GitHub Actions deliberately suppresses workflow runs
-# for events whose push was made by `GITHUB_TOKEN`; using a PAT makes
-# the merge push look like a real user so the `Builder` workflow fires
-# and publishes the new image. If `BUMP_PAT` is missing/expired the
-# workflow fails fast at the merge step rather than silently regressing
-# to the no-Builder-run state that left 7.0.7-ha.1 unpublished.
+# Auth: PR creation and the merge use a GitHub App installation token
+# minted per run from the `fiestaboard-ci-bot` App (`CI_BOT_APP_ID` +
+# `CI_BOT_APP_PRIVATE_KEY`) rather than the default `GITHUB_TOKEN`.
+# GitHub Actions deliberately suppresses workflow runs for events whose
+# push was made by `GITHUB_TOKEN`; an App installation token is not
+# subject to that suppression, so the merge push fires the `Builder`
+# workflow and publishes the new image.
+#
+# `fiestaboard-ci-bot` was removed from the `PR policy` ruleset's
+# `bypass_actors` on 2026-08-20 (it held `bypass_mode: always`). While it
+# could bypass, a bump PR was mergeable the instant it opened, so `--auto`
+# below would have squashed it immediately instead of waiting — silently
+# skipping the six required checks. Re-adding that bypass re-breaks the
+# gating; grant the App bypass on some other ruleset if it ever needs one.
+#
+# This replaced a fine-grained PAT (`BUMP_PAT`, now unused), which expired on
+# 2026-08-17 and hard-failed every hourly run with `Bad credentials`
+# until it was noticed. Installation tokens are minted fresh each run
+# and expire in an hour, so there is no long-lived credential to lapse —
+# only the App's private key, which does not expire.
 on:
   schedule:
     # Hourly. Idempotent: only acts when upstream actually changed.
@@ -40,6 +57,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+
+      - name: Mint bump token
+        # Installation token for the bump App. Scoped to this repo with
+        # Contents + Pull requests: write. A bad/rotated private key fails
+        # here, before any repo state is touched.
+        id: bump_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.CI_BOT_APP_ID }}
+          private-key: ${{ secrets.CI_BOT_APP_PRIVATE_KEY }}
 
       - name: Determine current and latest versions
         id: versions
@@ -71,12 +98,13 @@ jobs:
           fi
 
       - name: Verify bump credentials
-        # Unconditional (no needs_bump gate) so an expired/revoked BUMP_PAT
+        # Unconditional (no needs_bump gate) so a token that mints but
+        # can't reach the repo — App uninstalled, repo access narrowed —
         # turns the run red the same hour, not up to ~6 days later on the
         # next actual bump. Runs before the gated steps so a credential
         # failure points at auth rather than whichever gated step ran first.
         env:
-          GH_TOKEN: ${{ secrets.BUMP_PAT }}
+          GH_TOKEN: ${{ steps.bump_token.outputs.token }}
         run: gh api repos/${{ github.repository }} --jq .full_name > /dev/null
 
       - name: Close stale bump PRs
@@ -85,7 +113,7 @@ jobs:
         # so only the current target branch is live.
         if: steps.versions.outputs.needs_bump == 'true'
         env:
-          GH_TOKEN: ${{ secrets.BUMP_PAT }}
+          GH_TOKEN: ${{ steps.bump_token.outputs.token }}
           KEEP_BRANCH: upstream/fiestaboard-${{ steps.versions.outputs.latest_upstream }}
         run: |
           set -euo pipefail
@@ -127,9 +155,9 @@ jobs:
         id: pr
         uses: peter-evans/create-pull-request@v8
         with:
-          # PAT (not GITHUB_TOKEN) so the branch push that lands the
+          # App token (not GITHUB_TOKEN) so the branch push that lands the
           # merge commit triggers `Builder`. See header comment.
-          token: ${{ secrets.BUMP_PAT }}
+          token: ${{ steps.bump_token.outputs.token }}
           branch: upstream/fiestaboard-${{ steps.versions.outputs.latest_upstream }}
           base: main
           title: "feat: bump upstream FiestaBoard to ${{ steps.versions.outputs.latest_upstream }}"
@@ -142,8 +170,9 @@ jobs:
             upstream pin), `fiestaboard/config.yaml`'s `version:`, and prepends
             a `CHANGELOG.md` entry.
 
-            This PR is squash-merged immediately by the same workflow job,
-            after which `Builder` publishes
+            Auto-merge is enabled on this PR by the same workflow job; it
+            squash-merges once the required checks pass, after which
+            `Builder` publishes
             `fiestaboard/fiestaboard-ha-app:${{ steps.versions.outputs.new_addon_version }}`.
 
             Upstream release notes:
@@ -156,14 +185,19 @@ jobs:
             dependencies
             upstream
 
-      - name: Merge PR
+      - name: Enable auto-merge
         if: |
           steps.versions.outputs.needs_bump == 'true' &&
           steps.pr.outputs.pull-request-number
         env:
-          # PAT (not GITHUB_TOKEN) so the merge push fires `Builder`.
-          # See header comment.
-          GH_TOKEN: ${{ secrets.BUMP_PAT }}
+          # App token (not GITHUB_TOKEN) so the merge push fires `Builder`.
+          # GitHub performs an auto-merge on behalf of the actor that
+          # enabled it, so the push is attributed to the App. See header
+          # comment.
+          GH_TOKEN: ${{ steps.bump_token.outputs.token }}
           PR_NUMBER: ${{ steps.pr.outputs.pull-request-number }}
         run: |
-          gh pr merge --squash --delete-branch "${PR_NUMBER}"
+          # `--auto`, not `--admin`: the required checks exist to catch
+          # bumps that need `config.yaml`/`ha-run.sh` wiring, so bypassing
+          # them would defeat the ruleset rather than satisfy it.
+          gh pr merge --squash --delete-branch --auto "${PR_NUMBER}"
